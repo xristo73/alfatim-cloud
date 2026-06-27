@@ -182,6 +182,7 @@ def serve_file(filepath):
 
     user_root = os.path.join("uploads", session["username"])
 
+
     folder = os.path.dirname(filepath)
     filename = os.path.basename(filepath)
 
@@ -420,16 +421,15 @@ def share_create():
 
     token = secrets.token_hex(16)
 
-    conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()
+    db = get_db()
+    c = db.cursor()
 
     c.execute(
         "INSERT INTO shared_links (token, filepath) VALUES (?, ?)",
         (token, filepath)
     )
 
-    conn.commit()
-    conn.close()
+    db.commit()
 
     flash(
         f"https://chmura.alfatim.pl/share/{token}",
@@ -441,8 +441,8 @@ def share_create():
 @app.route("/share/<token>")
 def share_file(token):
 
-    conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()
+    db = get_db()
+    c = db.cursor()
 
     c.execute(
         "SELECT filepath FROM shared_links WHERE token=?",
@@ -450,7 +450,6 @@ def share_file(token):
     )
 
     result = c.fetchone()
-    conn.close()
 
     if not result:
         abort(404)
@@ -993,11 +992,13 @@ def dashboard():
     storage_used = round(total_size / (1024 * 1024), 2)
 
     # 🔥 pobranie limitu z bazy (w MB)
-    conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()
-    c.execute("SELECT storage_limit FROM users WHERE username = ?", (session["username"],))
+    db = get_db()
+    c = db.cursor()
+    c.execute(
+        "SELECT storage_limit FROM users WHERE username = ?",
+        (session["username"],)
+    )
     result = c.fetchone()
-    conn.close()
 
     storage_limit = round(result[0], 2) if result else 100
 
@@ -1054,11 +1055,13 @@ def upload():
     os.makedirs(save_path, exist_ok=True)
 
     # 2. Pobierz limit użytkownika z bazy
-    conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()
-    c.execute("SELECT storage_limit FROM users WHERE username = ?", (username,))
+    db = get_db()
+    c = db.cursor()
+    c.execute(
+        "SELECT storage_limit FROM users WHERE username = ?",
+        (username,)
+    )
     result = c.fetchone()
-    conn.close()
 
     if not result:
         flash("Błąd użytkownika")
@@ -1190,11 +1193,10 @@ def admin_panel():
     if not is_logged_in() or not is_admin():
         abort(403)
 
-    conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()
+    db = get_db()
+    c = db.cursor()
     c.execute("SELECT id, username, role, storage_limit FROM users")
     users = c.fetchall()
-    conn.close()
 
     return render_template(
         "admin.html",
@@ -1218,11 +1220,13 @@ def update_limit(user_id):
     except:
         new_limit = 100
 
-    conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()
-    c.execute("UPDATE users SET storage_limit = ? WHERE id = ?", (new_limit, user_id))
-    conn.commit()
-    conn.close()
+    db = get_db()
+    c = db.cursor()
+    c.execute(
+        "UPDATE users SET storage_limit = ? WHERE id = ?",
+        (new_limit, user_id)
+    )
+    db.commit()
 
     return redirect(url_for("admin_panel"))
 
@@ -1252,8 +1256,8 @@ def add_user():
     except:
         storage_limit = 100
 
-    conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()
+    db = get_db()
+    c = db.cursor()
 
     try:
         c.execute("""
@@ -1261,15 +1265,13 @@ def add_user():
             VALUES (?, ?, ?, ?)
         """, (username, hashed_password, role, storage_limit))
 
-        conn.commit()
-        conn.close()
+        db.commit()
 
         os.makedirs(os.path.join(UPLOAD_FOLDER, username), exist_ok=True)
 
         flash(f"Użytkownik {username} został utworzony", "success")
 
     except sqlite3.IntegrityError:
-        conn.close()
         flash("Użytkownik już istnieje", "error")
 
     return redirect(url_for("admin_panel"))
@@ -1291,19 +1293,17 @@ def delete_user():
     if username == session.get("username"):
         return "Nie możesz usunąć samego siebie", 400
 
-    conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()
+    db = get_db()
+    c = db.cursor()
 
     c.execute("SELECT id FROM users WHERE username = ?", (username,))
     user = c.fetchone()
 
     if not user:
-        conn.close()
         return "Użytkownik nie istnieje", 404
 
     c.execute("DELETE FROM users WHERE username = ?", (username,))
-    conn.commit()
-    conn.close()
+    db.commit()
 
     user_folder = os.path.join(UPLOAD_FOLDER, username)
     if os.path.exists(user_folder):
