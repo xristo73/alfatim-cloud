@@ -9,6 +9,7 @@ from utils.security import is_logged_in, is_admin
 from utils.helpers import get_folder_size, generate_thumb
 from routes.auth import auth_bp
 from services.user_service import get_user, get_user_limit
+from utils.decorators import login_required, admin_required
 import os
 import sqlite3
 import shutil
@@ -127,9 +128,8 @@ def logout():
 # =====================================================
 
 @app.route("/view")
+@login_required
 def view_file():
-    if "username" not in session:
-        return redirect(url_for("home"))
 
     current_path = request.args.get("path", "")
     filename = request.args.get("name")
@@ -175,10 +175,8 @@ def view_file():
 
 
 @app.route("/file/<path:filepath>")
+@login_required
 def serve_file(filepath):
-
-    if "username" not in session:
-        return redirect(url_for("home"))
 
     user_root = os.path.join("uploads", session["username"])
 
@@ -192,10 +190,8 @@ def serve_file(filepath):
     )
 
 @app.route("/download/<path:filepath>")
+@login_required
 def download(filepath):
-
-    if "username" not in session:
-        return redirect(url_for("home"))
 
     user_root = os.path.join("uploads", session["username"])
 
@@ -213,12 +209,8 @@ def download(filepath):
 # ====================================================
 
 @app.route("/download")
+@login_required
 def download_file():
-
-    print("DOWNLOAD_FILE")
-
-    if "username" not in session:
-        return redirect(url_for("home"))
 
     current_path = request.args.get("path", "")
     filename = request.args.get("name")
@@ -256,9 +248,8 @@ def create_folder():
 # =====================================================
 
 @app.route("/delete")
+@login_required
 def delete():
-    if "username" not in session:
-        return redirect(url_for("home"))
 
     current_path = request.args.get("path", "")
     item_name = request.args.get("name")
@@ -288,10 +279,8 @@ def delete():
 # =====================================================
 
 @app.route("/restore")
+@login_required
 def restore():
-
-    if "username" not in session:
-        return redirect(url_for("home"))
 
     item_name = request.args.get("name")
 
@@ -310,10 +299,8 @@ def restore():
 # =====================================================
 
 @app.route("/restore_version")
+@login_required
 def restore_version():
-
-    if "username" not in session:
-        return redirect(url_for("home"))
 
     filename = request.args.get("name")
     version = request.args.get("version")
@@ -354,10 +341,8 @@ def restore_version():
 # =====================================================
 
 @app.route("/search")
+@login_required
 def search():
-
-    if "username" not in session:
-        return redirect(url_for("home"))
 
     query = request.args.get("q", "").lower()
 
@@ -1028,9 +1013,8 @@ def uploaded_file(filename):
 # =====================================================
 
 @app.route("/upload", methods=["POST"])
+@login_required
 def upload():
-    if "username" not in session:
-        return redirect(url_for("home"))
 
     username = session["username"]
     current_path = request.form.get("current_path", "")
