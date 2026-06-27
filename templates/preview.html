@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Podgląd pliku</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #f4f4f4; padding: 20px; }
+        .nav-bar { margin-bottom: 20px; background: white; padding: 15px; border-radius: 10px; shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .btn { padding: 10px 20px; cursor: pointer; background: #222; color: #fff; border: none; border-radius: 5px; text-decoration: none; margin: 5px; transition: 0.3s; }
+        .btn:hover { background: #444; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        img { max-width: 90%; max-height: 70vh; border-radius: 5px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        iframe { border: none; background: white; }
+    </style>
+</head>
+<body>
+
+<div class="nav-bar">
+    <h3>Plik: {{ filename }}</h3>
+    
+    <!-- Przyciski sterowania -->
+    <button id="prevBtn" class="btn">⬅ Poprzednie</button>
+    <a href="{{ url_for('dashboard', path=current_path) }}" class="btn" style="background: #666;">Wróć do folderu</a>
+    <button id="nextBtn" class="btn">Następne ➡</button>
+</div>
+
+<div class="content">
+    {% if filepath.lower().endswith(('.png','.jpg','.jpeg','.gif','.webp')) %}
+        <img src="{{ url_for('serve_file', filepath=filepath) }}" id="mainImage">
+    {% elif filepath.lower().endswith('.pdf') %}
+        <iframe src="{{ url_for('serve_file', filepath=filepath) }}" width="100%" height="800px"></iframe>
+
+    {% elif file_content %}
+        <div style="background:white; padding:20px; text-align:left; max-width:1200px; margin:auto; border-radius:10px;">
+            <pre style="white-space:pre-wrap; word-wrap:break-word;">{{ file_content }}</pre>
+        </div>
+
+    {% else %}
+
+        <div style="padding: 100px; background: white; display: inline-block;">
+            <p>Podgląd niedostępny dla tego typu pliku.</p>
+            <a href="{{ url_for('download', filepath=filepath) }}" class="btn" style="background: green;">Pobierz plik</a>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+    // Pobieramy dane z Pythona
+    const files = {{ files|tojson|safe }};
+    const currentName = "{{ filename }}";
+    const path = "{{ current_path }}";
+    
+    // Szukamy numeru aktualnego pliku na liście
+    const currentIndex = files.indexOf(currentName);
+
+    console.log("Wszystkie pliki w folderze:", files);
+    console.log("Aktualny plik:", currentName, "Index:", currentIndex);
+
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+
+    // Funkcja nawigacji
+    function navigate(direction) {
+        let newIndex = currentIndex + direction;
+        
+        if (newIndex >= 0 && newIndex < files.length) {
+            const nextFileName = files[newIndex];
+            // Budujemy URL: /view?path=FOLDER&name=PLIK
+            const url = `/view?path=${encodeURIComponent(path)}&name=${encodeURIComponent(nextFileName)}`;
+            console.log("Przechodzę do:", url);
+            window.location.href = url;
+        }
+    }
+
+    // Blokowanie przycisków, jeśli nie ma więcej plików
+    if (currentIndex <= 0) prevBtn.disabled = true;
+    if (currentIndex >= files.length - 1 || currentIndex === -1) nextBtn.disabled = true;
+
+    // Obsługa kliknięć
+    prevBtn.onclick = () => navigate(-1);
+    nextBtn.onclick = () => navigate(1);
+
+    // Obsługa klawiatury (strzałki)
+    document.addEventListener("keydown", function(e) {
+        if (e.key === "ArrowRight" && !nextBtn.disabled) {
+            navigate(1);
+        }
+        if (e.key === "ArrowLeft" && !prevBtn.disabled) {
+            navigate(-1);
+        }
+    });
+</script>
+
+</body>
+</html>

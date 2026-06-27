@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% block title %}Chmura{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+body {
+    background: #f5f5f7;
+}
+
+.login-bg {
+    background: url("/cloud/static/chmura_alfatim.png") no-repeat center center fixed;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+</style>
+
+</head>
+
+<body class="min-h-screen text-gray-800 {% block body_class %}{% endblock %}">
+
+<!-- KOMUNIKATY -->
+<div class="max-w-6xl mx-auto px-6 mt-6">
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+{% for category, message in messages %}
+
+<div class="p-4 rounded-xl mb-3 shadow-sm
+{% if category == 'success' %}
+bg-green-100 text-green-800
+{% elif category == 'error' %}
+bg-red-100 text-red-800
+{% else %}
+bg-gray-100 text-gray-800
+{% endif %}">
+
+✔ {{ message }}
+
+</div>
+
+{% endfor %}
+{% endif %}
+{% endwith %}
+
+</div>
+
+{% block content %}{% endblock %}
+
+</body>
+</html>

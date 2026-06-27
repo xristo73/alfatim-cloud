@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Panel administracyjny</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #f5f5f7; }
+    </style>
+</head>
+
+<body class="min-h-screen text-gray-800">
+
+<!-- NAVBAR -->
+<div class="bg-white border-b border-gray-200">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+        <h1 class="text-lg font-semibold">☁ Chmura – Admin</h1>
+        <div class="text-sm text-gray-500">
+            <a href="/dashboard" class="hover:text-black mr-6">Powrót</a>
+            {{ session.get("username") }}
+        </div>
+    </div>
+</div>
+
+<div class="max-w-6xl mx-auto px-6 py-12">
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+
+<div class="mb-6">
+{% for category, message in messages %}
+
+<div class="p-4 rounded-xl mb-3 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' %}bg-red-100 text-red-800{% else %}bg-gray-100{% endif %}">
+{{ message }}
+</div>
+
+
+{% endfor %}
+</div>
+
+{% endif %}
+{% endwith %}
+
+    <!-- STATYSTYKA -->
+    <div class="bg-white rounded-2xl shadow-sm p-8 mb-10">
+        <p class="text-sm text-gray-500">Liczba użytkowników</p>
+        <p class="text-3xl font-semibold mt-2">{{ total_users }}</p>
+    </div>
+
+    <!-- DODAJ UŻYTKOWNIKA -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm mb-10">
+        <h2 class="font-semibold mb-4">➕ Dodaj użytkownika</h2>
+
+        <form action="{{ url_for('add_user') }}" method="POST" class="grid md:grid-cols-5 gap-3">
+
+            <input type="text" name="username" placeholder="Login"
+                   class="border px-3 py-2 rounded text-sm" required>
+
+            <input type="password" name="password" placeholder="Hasło"
+                   class="border px-3 py-2 rounded text-sm" required>
+
+            <select name="role" class="border px-3 py-2 rounded text-sm">
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+            </select>
+
+            <input type="number" name="storage_limit"
+                   class="border px-3 py-2 rounded text-sm"
+                   value="100" min="1">
+
+            <button type="submit"
+                    class="bg-black text-white px-4 py-2 rounded hover:opacity-90">
+                Dodaj
+            </button>
+        </form>
+    </div>
+
+    <!-- TABELA -->
+    <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-gray-500">
+                <tr>
+                    <th class="p-4 text-left">ID</th>
+                    <th class="p-4 text-left">Login</th>
+                    <th class="p-4 text-left">Rola</th>
+                    <th class="p-4 text-left">Limit (MB)</th>
+                    <th class="p-4 text-left">Akcje</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for user in users %}
+                <tr class="border-t border-gray-100">
+                    <td class="p-4">{{ user[0] }}</td>
+                    <td class="p-4">{{ user[1] }}</td>
+                    <td class="p-4">{{ user[2] }}</td>
+                    <td class="p-4">{{ user[3]|round(0) }}</td>
+
+                    <td class="p-4">
+                        <div class="flex gap-2 items-center flex-wrap">
+
+                            <!-- ZMIANA LIMITU -->
+                            <form method="POST"
+                                  action="{{ url_for('update_limit', user_id=user[0]) }}"
+                                  class="flex gap-2 items-center">
+
+                                <input type="number"
+                                       name="storage_limit"
+                                       value="{{ user[3]|round(0) }}"
+                                       class="w-20 border rounded px-2 py-1 text-xs"
+                                       min="1">
+
+                                <button class="text-xs bg-black text-white px-2 py-1 rounded">
+                                    Zmień
+                                </button>
+                            </form>
+
+                            <!-- USUŃ USERA -->
+                            {% if user[1] != session.get("username") %}
+                            <form method="POST"
+                                  action="/admin/delete_user"
+                                  onsubmit="return confirm('Na pewno usunąć użytkownika?')">
+
+                                <input type="hidden" name="username" value="{{ user[1] }}">
+
+                                <button class="text-xs bg-red-600 text-white px-2 py-1 rounded">
+                                    Usuń
+                                </button>
+                            </form>
+                            {% endif %}
+
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+</body>
+</html>

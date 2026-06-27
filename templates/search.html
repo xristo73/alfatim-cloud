@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="max-w-5xl mx-auto p-6">
+
+<h1 class="text-2xl font-semibold mb-6">
+🔍 Wyniki wyszukiwania: "{{ query }}"
+</h1>
+
+<a href="{{ url_for('dashboard') }}"
+   class="text-blue-600">
+← Powrót
+</a>
+
+<div class="mt-6 bg-white rounded-xl shadow-sm">
+
+{% for item in results %}
+
+<div class="border-b px-4 py-3">
+
+{% if item.is_folder %}
+📁 {{ item.path }}
+{% else %}
+📄 {{ item.path }}
+{% endif %}
+
+</div>
+
+{% endfor %}
+
+{% if not results %}
+<div class="p-4">
+Brak wyników.
+</div>
+{% endif %}
+
+</div>
+
+</div>
+
+{% endblock %}

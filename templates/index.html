@@ -1,0 +1,430 @@
+{% extends "base.html" %}
+
+{% block title %}Chmura AlfaTim{% endblock %}
+
+{% block content %}
+
+<style>
+body {
+    background-image: url("{{ url_for('static', filename='tlo.png') }}");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+.overlay {
+    backdrop-filter: blur(6px);
+    background: rgba(255,255,255,0.3);
+    min-height: 100vh;
+}
+</style>
+
+<div class="overlay">
+<div class="max-w-5xl mx-auto p-6">
+
+<!-- HEADER -->
+
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-semibold">☁ Chmura AlfaTim</h1>
+
+
+<div class="text-sm">
+
+    {% if session.get("role") == "admin" %}
+        <a href="{{ url_for('admin_panel') }}"
+           class="text-gray-600 hover:text-black mr-3">
+           Panel admina
+        </a> |
+    {% endif %}
+
+    Zalogowany: <strong>{{ session.username }}</strong>
+    |
+    <a href="{{ url_for('logout') }}" class="text-red-500">Wyloguj</a>
+
+</div>
+
+
+</div>
+
+<!-- STORAGE INFO -->
+
+<div class="bg-white rounded-xl p-4 shadow-sm mb-6 text-sm">
+
+
+<div class="flex justify-between mb-2">
+    <span>Wykorzystane miejsce</span>
+    <span>
+        <strong>{{ storage_used }} MB</strong> /
+        {{ storage_limit }} MB
+        ({{ usage_percent }}%)
+    </span>
+</div>
+
+<div class="w-full bg-gray-200 rounded-full h-3">
+    <div
+        class="h-3 rounded-full
+        {% if usage_percent < 70 %}
+            bg-green-500
+        {% elif usage_percent < 90 %}
+            bg-yellow-500
+        {% else %}
+            bg-red-500
+        {% endif %}"
+        style="width: {{ usage_percent }}%;">
+    </div>
+</div>
+
+
+</div>
+
+<!-- NAWIGACJA -->
+
+<div class="mb-4 text-sm">
+    📂 /
+    {% if current_path %}
+        {% set parts = current_path.split('/') %}
+        {% set path_accum = "" %}
+        {% for part in parts %}
+            {% set path_accum = path_accum + '/' + part if path_accum else part %}
+            <a href="{{ url_for('dashboard', path=path_accum) }}" class="text-blue-600">
+                {{ part }}
+            </a> /
+        {% endfor %}
+    {% endif %}
+</div>
+
+<!-- WYSZUKIWARKA -->
+
+<div class="bg-white rounded-xl p-4 shadow-sm mb-6">
+
+<form action="{{ url_for('search') }}" method="GET" class="flex gap-2">
+
+    <input
+        type="text"
+        name="q"
+        placeholder="🔍 Szukaj plików i folderów..."
+        class="flex-1 border rounded px-3 py-2">
+
+    <button
+        type="submit"
+        class="bg-black text-white px-4 py-2 rounded">
+        Szukaj
+    </button>
+
+</form>
+
+</div>
+
+<!-- AKCJE -->
+
+<div class="grid md:grid-cols-2 gap-6 mb-6">
+
+<!-- UPLOAD -->
+
+<div class="bg-white rounded-xl p-4 shadow-sm">
+    <h2 class="font-medium mb-3">⬆ Prześlij plik</h2>
+
+<div id="drop-zone"     class="border-2 border-dashed border-gray-400 rounded-lg p-8 text-center mb-4 cursor-pointer">
+    📂 Przeciągnij pliki tutaj lub kliknij aby wybrać
+</div>
+
+
+<form action="{{ url_for('upload') }}" method="POST" enctype="multipart/form-data" class="space-y-3">
+
+    <input type="hidden" name="current_path" value="{{ current_path }}">
+    <input type="hidden" id="relative-paths" name="relative_paths">
+    <input type="file"
+       id="file-input"
+       name="file"
+       multiple
+       webkitdirectory
+       directory
+       required
+       class="w-full border rounded px-3 py-2 text-sm">    
+
+    <button type="submit"class="w-full bg-black text-white py-2 rounded hover:opacity-90">
+        Prześlij
+    </button>
+
+</form>
+
+
+</div>
+
+<!-- NOWY FOLDER -->
+
+<div class="bg-white rounded-xl p-4 shadow-sm">
+    <h2 class="font-medium mb-3">📁 Nowy folder</h2>
+
+
+<form action="{{ url_for('create_folder') }}" method="POST" class="space-y-3">
+
+    <input type="hidden" name="current_path" value="{{ current_path }}">
+
+    <input type="text" name="folder_name" requiredplaceholder="Nazwa folderu"class="w-full border rounded px-3 py-2 text-sm">
+
+    <button type="submit"class="w-full border border-black py-2 rounded hover:bg-black hover:text-white">
+        Utwórz folder
+    </button>
+
+</form>
+
+
+</div>
+
+</div>
+
+<!-- LISTA PLIKÓW -->
+<div class="bg-white rounded-xl shadow-sm divide-y divide-gray-100">
+
+<div class="p-4 border-b bg-gray-50 flex items-center gap-3">
+
+    <label>
+        <input type="checkbox" id="select-all">
+        Zaznacz wszystko
+    </label>
+
+    <span id="selected-count">Wybrano: 0</span>
+
+    <select id="bulk-action"
+            class="border rounded px-2 py-1">
+        <option value="">Akcje...</option>
+        <option value="download">Pobierz</option>
+        <option value="zip">📦 Pobierz ZIP</option>
+        <option value="share">📤 Udostępnij</option>
+        <option value="clipboard_copy">📋 Kopiuj</option>
+        <option value="paste">📌 Wklej</option>
+        <option value="copy">📂 Kopiuj do folderu</option>
+        <option value="move">Przenieś</option>
+        <option value="delete">Usuń</option>
+    </select>
+
+    <button type="button"
+            onclick="runBulkAction()"
+            class="bg-black text-white px-3 py-1 rounded">
+        Wykonaj
+    </button>
+
+</div>
+
+{% if items %}
+{% for item in items %}
+    {# Ukrywamy folder .thumbs, żeby nie pojawiał się na liście jako folder #}
+    {% if item.name != ".thumbs" and item.name != ".trash" %}
+
+    <div class="file-row flex justify-between items-center px-4 py-3 hover:bg-gray-50"data-name="{{ item.name }}"data-folder="{{ '1' if item.is_folder else '0' }}">
+
+        {% if item.is_folder %}
+            <!-- FOLDER -->
+            <div class="flex items-center">
+                <input type="checkbox"
+                       class="item-checkbox mr-3"
+                       data-name="{{ item.name }}">
+                <span class="mr-2 text-xl">📁</span>
+                <a href="{% if item.name == '🗑 Kosz' %}
+                            {{ url_for('dashboard', path='.trash') }}
+                          {% else %}
+                            {{ url_for('dashboard', path=(current_path + '/' + item.name) if current_path else item.name) }}
+                          {% endif %}"
+                   class="text-blue-600 font-medium hover:underline">
+                   {{ item.name }}
+                 </a>
+            </div>
+
+            <div>
+                <a href="#"
+                   class="text-blue-600 text-sm hover:font-bold mr-3"
+                   onclick="renameItem('{{ item.name }}'); return false;">
+                   Zmień nazwę
+                </a>
+
+                <a href="#"
+                   class="text-green-600 text-sm hover:font-bold mr-3"
+                   onclick="moveItem('{{ item.name }}'); return false;">
+                   Przenieś
+                </a>
+
+                <a href="{{ url_for('delete', path=current_path, name=item.name) }}"
+                   class="text-red-500 text-sm hover:font-bold" 
+                   onclick="return confirm('Czy na pewno usunąć ten folder?')">
+                   Usuń
+                </a>
+            </div>
+
+        {% else %}
+            <!-- PLIK -->
+            <div class="flex items-center">
+                <input type="checkbox"
+                       class="item-checkbox mr-3"
+                       data-name="{{ item.name }}">
+
+                <div class="flex items-center cursor-pointer"
+                     onclick="window.open('{{ url_for('view_file', path=current_path, name=item.name) }}','_blank')">   
+                <div class="w-10 h-10 mr-3 flex items-center justify-center bg-gray-100 rounded overflow-hidden border">
+                    {% set ext = item.name.split('.')[-1].lower() %}
+                    {% if ext in ['jpg', 'jpeg', 'png', 'gif'] %}
+                        {# Ścieżka do miniatury wykorzystująca trasę uploaded_file #}
+                        <img src="{{ url_for('uploaded_file', filename=session.username + '/' + (current_path + '/' if current_path else '') + '.thumbs/' + item.name) }}" 
+                             class="w-full h-full object-cover"
+                             onerror="this.parentElement.innerHTML='<span class=\'text-xl\'>🖼️</span>'">
+                    {% else %}
+                        <span class="text-xl">📄</span>
+                    {% endif %}
+                </div>
+
+                <span class="text-gray-800 hover:text-blue-600 font-medium">
+                   {{ item.name }}
+                </span>
+            </div>
+       </div>
+            <div class="flex items-center">
+
+                {% if current_path == ".trash" %}
+                <a href="{{ url_for('restore', name=item.name) }}"class="text-green-600 text-sm hover:font-bold mr-3">
+                   Przywróć
+                </a>
+                {% endif %}
+                
+               
+                <a href="{{ url_for('share_create', path=current_path, name=item.name) }}"class="text-blue-600 text-sm hover:font-bold mr-3">
+                   Udostępnij
+                </a>
+
+                <a href="{{ url_for('download_file', path=current_path, name=item.name) }}"
+                   class="text-indigo-600 text-sm hover:font-bold mr-3">
+                   Pobierz
+                </a>
+  
+                <a href="{{ url_for('show_versions', name=item.name) }}"
+                   class="text-purple-600 text-sm hover:font-bold mr-3">
+                   Wersje
+                </a>
+
+                <a href="#"
+                   class="text-cyan-600 text-sm hover:font-bold mr-3"
+                   onclick="copyItem('{{ item.name }}'); return false;">
+                   Kopiuj 
+                </a>
+
+                <a href="#"
+                   class="text-green-600 text-sm hover:font-bold mr-3"
+                   onclick="moveItem('{{ item.name }}'); return false;">
+                   Przenieś
+                </a>
+
+                <a href="#"
+                   class="text-blue-600 text-sm hover:font-bold mr-3"
+                   onclick="renameItem('{{ item.name }}'); return false;">
+                   Zmień nazwę
+                </a>                
+
+                <a href="{{ url_for('delete', path=current_path, name=item.name) }}"class="text-red-500 text-sm hover:font-bold"onclick="return confirm('Czy na pewno usunąć ten plik?')">
+                   Usuń
+                </a>
+
+            </div>
+        {% endif %}
+    </div>
+    {% endif %}
+{% endfor %}
+
+{% else %}
+    <div class="p-6 text-center text-sm text-gray-500">Ten folder jest pusty.</div>
+{% endif %}
+</div>
+
+
+</div>
+</div>
+
+<!-- MENU KONTEKSTOWE -->
+
+<div id="context-menu"
+     class="hidden fixed bg-white border rounded-lg shadow-xl w-64 z-50">
+
+    <button type="button"
+            id="ctx-open"
+            class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+        📂 Otwórz
+    </button>
+
+    <hr>
+
+    <button type="button"
+            id="ctx-download"
+            class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+        📥 Pobierz
+    </button>
+    <hr>
+
+    <button type="button"
+            id="ctx-zip"
+            class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+        📦 Pobierz ZIP
+    </button>
+
+    <hr>
+
+    <button type="button"
+            id="ctx-share"
+            class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+        📤 Udostępnij
+    </button>
+
+    <hr>
+
+    <button type="button"
+            id="ctx-copy"
+            class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+        📋 Kopiuj
+
+
+    </button>
+    <hr>
+
+    <button type="button"
+            id="ctx-paste"
+            class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+        📌 Wklej
+    </button>
+    <hr>
+
+    <button type="button"
+            id="ctx-move"
+            class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+        📂 Przenieś
+    </button>
+
+    <hr>
+
+    <button type="button"
+            id="ctx-rename"
+            class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+        ✏️ Zmień nazwę
+    </button>
+    <hr>
+
+    <button type="button"
+            id="ctx-versions"
+            class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+        🕓 Wersje
+    </button>
+
+    <hr>
+
+    <button type="button"
+            id="ctx-delete"
+            class="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50">
+        🗑 Usuń
+    </button>
+    <hr>
+
+</div>
+
+<script>
+window.currentPath = {{ current_path|tojson }};
+</script>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+{% endblock %}

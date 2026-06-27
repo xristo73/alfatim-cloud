@@ -1,0 +1,41 @@
+<h1 style="color:red;font-size:50px;">TEST LOGIN</h1>
+{% extends "base.html" %}
+
+{% block title %}Logowanie{% endblock %}
+
+{% block content %}
+
+<div style="background:url('/cloud/static/chmura_alfatim.png') no-repeat center center; background-size:cover; min-height:100vh; display:flex; align-items:center; justify-content:center;">
+
+<div class="bg-white/80 p-8 rounded-xl shadow-xl w-80">
+
+<div class="flex flex-col items-center mb-6">
+
+<img src="{{ url_for('static', filename='chmura_alfatim.png') }}" width="220">
+
+<h2 class="text-2xl font-semibold mt-4">Chmura AlfaTim</h2>
+
+</div>
+
+<form method="POST" class="space-y-3">
+
+<input name="username" placeholder="Login" required class="border p-2 rounded w-full">
+
+<input name="password" type="password" placeholder="Hasło" required class="border p-2 rounded w-full">
+
+<button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded w-full">
+Zaloguj
+</button>
+
+</form>
+
+<p class="mt-4 text-center">
+Nie masz konta?
+<a href="/register" class="text-blue-600">Zarejestruj się</a>
+</p>
+
+</div>
+
+</div>
+
+{% endblock %}

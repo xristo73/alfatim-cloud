@@ -1,0 +1,782 @@
+from flask import Flask, render_template, request, redirect, url_for, session, abort, send_from_directory, flash
+from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+from PIL import Image
+import os
+import sqlite3
+import shutil
+import time 
+import secrets
+app = Flask(__name__)
+app.secret_key = "2ec108687d46ec451fbc7142c651e1fb568d4b6b64aca6200e7b652f703feed2"
+
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max plik
+
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
+DATABASE = os.path.join(BASE_DIR, "users.db")
+
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "pdf", "txt", "doc", "docx", "xlsx", "zip"}
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
+# =====================================================
+# BAZA
+# =====================================================
+
+def init_db():
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            role TEXT DEFAULT 'user',
+            storage_limit INTEGER DEFAULT 104857600,
+            failed_attempts INTEGER DEFAULT 0,
+            blocked_until INTEGER DEFAULT 0
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_db()
+
+
+# =====================================================
+# POMOCNICZE
+# =====================================================
+
+def allowed_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def is_logged_in():
+    return "user_id" in session
+
+def is_admin():
+    return session.get("role") == "admin"
+
+def get_user(username):
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+    c.execute("""
+        SELECT id, username, password, role, storage_limit,
+               failed_attempts, blocked_until
+        FROM users WHERE username = ?
+    """, (username,))
+    user = c.fetchone()
+    conn.close()
+    return user
+
+def get_user_limit(user_id):
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+    c.execute("SELECT storage_limit FROM users WHERE id = ?", (user_id,))
+    result = c.fetchone()
+    conn.close()
+    return result[0] if result else 0
+
+def get_user_base_folder(username):
+    path = os.path.join(UPLOAD_FOLDER, username)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+def secure_user_path(username, subpath=""):
+    base = get_user_base_folder(username)
+    full_path = os.path.normpath(os.path.join(base, subpath))
+    if not full_path.startswith(base):
+        abort(403)
+    return full_path
+
+def get_folder_size(path):
+    total = 0
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            fp = os.path.join(root, file)
+            if os.path.exists(fp):
+                total += os.path.getsize(fp)
+    return total
+
+def generate_thumb(file_path):
+    try:
+        base_dir = os.path.dirname(file_path)
+        thumb_dir = os.path.join(base_dir, ".thumbs")
+        os.makedirs(thumb_dir, exist_ok=True)
+        
+        filename = os.path.basename(file_path)
+        thumb_path = os.path.join(thumb_dir, filename)
+        
+        with Image.open(file_path) as img:
+            img.thumbnail((200, 200))
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            img.save(thumb_path, "JPEG", quality=80)
+    except Exception as e:
+        print(f"Błąd miniatury: {e}")
+
+# =====================================================
+# AUTH
+# =====================================================
+
+@app.route("/")
+def home():
+    if is_logged_in():
+        return redirect(url_for("dashboard"))
+    return render_template("auth.html")
+
+
+@app.route("/login", methods=["POST"])
+def login():
+    username = request.form.get("username")
+    password = request.form.get("password")
+
+    user = get_user(username)
+    current_time = int(time.time())
+
+    if user:
+        # blokada
+        if user[6] and user[6] > current_time:
+            return render_template("auth.html", error="Konto zablokowane na 5 minut.")
+
+        if check_password_hash(user[2], password):
+
+            conn = sqlite3.connect(DATABASE)
+            c = conn.cursor()
+            c.execute("UPDATE users SET failed_attempts=0 WHERE id=?", (user[0],))
+            conn.commit()
+            conn.close()
+
+            session["user_id"] = user[0]
+            session["username"] = user[1]
+            session["role"] = user[3]
+
+            return redirect(url_for("dashboard"))
+
+        else:
+            
+            conn = sqlite3.connect(DATABASE)
+            c = conn.cursor()
+
+            new_attempts = user[5] + 1
+            block_time = 0
+
+            if new_attempts >= 5:
+                block_time = current_time + 300
+                new_attempts = 0
+
+            c.execute("""
+                UPDATE users
+                SET failed_attempts=?, blocked_until=?
+                WHERE id=?
+            """, (new_attempts, block_time, user[0]))
+
+            conn.commit()
+            conn.close()
+
+            return render_template("auth.html", error="Nieprawidłowy login lub hasło.")
+
+    return render_template("auth.html", error="Nieprawidłowy login lub hasło.")
+
+
+@app.route("/register", methods=["POST"])
+def register():
+    username = request.form.get("username")
+    password = request.form.get("password")
+
+    if not username or not password:
+        return render_template("auth.html", error="Wypełnij wszystkie pola.")
+
+    hashed = generate_password_hash(password)
+
+    try:
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed))
+        conn.commit()
+        conn.close()
+
+        get_user_base_folder(username)
+
+        return render_template("auth.html", success="Konto utworzone. Możesz się zalogować.")
+
+    except sqlite3.IntegrityError:
+        return render_template("auth.html", error="Użytkownik już istnieje.")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("home"))
+
+# =====================================================
+# zobacz plik
+# =====================================================
+
+@app.route("/view")
+def view_file():
+    if "username" not in session:
+        return redirect(url_for("home"))
+
+    current_path = request.args.get("path", "")
+    filename = request.args.get("name")
+
+    user_root = os.path.join("uploads", session["username"])
+    folder = os.path.join(user_root, current_path)
+
+    # Pełna ścieżka do pliku dla szablonu
+    filepath = os.path.join(current_path, filename) if current_path else filename
+
+    # Pobieramy WSZYSTKIE pliki z folderu (tak jak w dashboardzie, ale bez folderów)
+    files = []
+    if os.path.exists(folder):
+        items = os.listdir(folder)
+        # Filtrujemy tylko pliki (pomijamy foldery)
+        files = sorted([
+            f for f in items 
+            if os.path.isfile(os.path.join(folder, f))
+        ])
+
+    return render_template(
+        "preview.html",
+        filepath=filepath,      # Ścieżka dla img src / iframe
+        filename=filename,      # Sama nazwa do znalezienia w liście JS
+        current_path=current_path,
+        files=files             # Lista nazw wszystkich plików w folderze
+    )
+
+
+@app.route("/file/<path:filepath>")
+def serve_file(filepath):
+
+    if "username" not in session:
+        return redirect(url_for("home"))
+
+    user_root = os.path.join("uploads", session["username"])
+
+    folder = os.path.dirname(filepath)
+    filename = os.path.basename(filepath)
+
+    return send_from_directory(
+        os.path.join(user_root, folder),
+        filename
+    )
+
+@app.route("/download/<path:filepath>")
+def download(filepath):
+
+    if "username" not in session:
+        return redirect(url_for("home"))
+
+    user_root = os.path.join("uploads", session["username"])
+
+    folder = os.path.dirname(filepath)
+    filename = os.path.basename(filepath)
+
+    return send_from_directory(
+        os.path.join(user_root, folder),
+        filename,
+        as_attachment=True
+    )
+
+# =====================================================
+# Tworzenie folderu
+# =====================================================
+
+@app.route("/create_folder", methods=["POST"])
+def create_folder():
+    if "username" not in session:
+        return redirect(url_for("home"))
+
+    folder_name = secure_filename(request.form.get("folder_name"))
+    current_path = request.form.get("current_path", "")
+
+    user_root = os.path.join("uploads", session["username"])
+    new_folder = os.path.join(user_root, current_path, folder_name)
+
+    os.makedirs(new_folder, exist_ok=True)
+
+    return redirect(url_for("dashboard", path=current_path))
+
+# =====================================================
+# Usuwanie Folderu
+# =====================================================
+
+@app.route("/delete")
+def delete():
+    if "username" not in session:
+        return redirect(url_for("home"))
+
+    current_path = request.args.get("path", "")
+    item_name = request.args.get("name")
+
+    user_root = os.path.join("uploads", session["username"])
+    target = os.path.join(user_root, current_path, item_name)
+
+    trash_dir = os.path.join(user_root, ".trash")
+    os.makedirs(trash_dir, exist_ok=True)
+
+    destination = os.path.join(trash_dir, item_name)
+
+    counter = 1
+    while os.path.exists(destination):
+        destination = os.path.join(
+            trash_dir,
+            f"{counter}_{item_name}"
+        )
+        counter += 1
+
+    shutil.move(target, destination)
+
+    return redirect(url_for("dashboard", path=current_path))
+
+# =====================================================
+# Przywracanie z kosza
+# =====================================================
+
+@app.route("/restore")
+def restore():
+
+    if "username" not in session:
+        return redirect(url_for("home"))
+
+    item_name = request.args.get("name")
+
+    user_root = os.path.join("uploads", session["username"])
+
+    source = os.path.join(user_root, ".trash", item_name)
+    destination = os.path.join(user_root, item_name)
+
+    if os.path.exists(source):
+        shutil.move(source, destination)
+
+    return redirect(url_for("dashboard", path=".trash"))
+
+# =====================================================
+# WYSZUKIWARKA
+# =====================================================
+
+@app.route("/search")
+def search():
+
+    if "username" not in session:
+        return redirect(url_for("home"))
+
+    query = request.args.get("q", "").lower()
+
+    user_root = os.path.join("uploads", session["username"])
+
+    results = []
+
+    for root, dirs, files in os.walk(user_root):
+
+        for folder in dirs:
+            if query in folder.lower():
+                rel_path = os.path.relpath(
+                    os.path.join(root, folder),
+                    user_root
+                )
+
+                results.append({
+                    "name": folder,
+                    "path": rel_path,
+                    "is_folder": True
+                })
+
+        for file in files:
+            if query in file.lower():
+
+                rel_path = os.path.relpath(
+                    os.path.join(root, file),
+                    user_root
+                )
+
+                results.append({
+                    "name": file,
+                    "path": rel_path,
+                    "is_folder": False
+                })
+
+    return render_template(
+        "search.html",
+        results=results,
+        query=query
+    )
+
+# =====================================================
+# Udostępnianie plików
+# =====================================================
+
+@app.route("/share_create")
+def share_create():
+
+    if "username" not in session:
+        return redirect(url_for("home"))
+
+    current_path = request.args.get("path", "")
+    item_name = request.args.get("name")
+
+    filepath = os.path.join(
+        session["username"],
+        current_path,
+        item_name
+    )
+
+    token = secrets.token_hex(16)
+
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+
+    c.execute(
+        "INSERT INTO shared_links (token, filepath) VALUES (?, ?)",
+        (token, filepath)
+    )
+
+    conn.commit()
+    conn.close()
+
+    flash(
+        f"https://chmura.alfatim.pl/share/{token}",
+        "success"
+    )
+
+    return redirect(url_for("dashboard", path=current_path))
+
+@app.route("/share/<token>")
+def share_file(token):
+
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+
+    c.execute(
+        "SELECT filepath FROM shared_links WHERE token=?",
+        (token,)
+    )
+
+    result = c.fetchone()
+    conn.close()
+
+    if not result:
+        abort(404)
+
+    filepath = result[0]
+
+    folder = os.path.dirname(filepath)
+    filename = os.path.basename(filepath)
+
+    return send_from_directory(
+        os.path.join("uploads", folder),
+        filename,
+        as_attachment=True
+    )
+
+# =====================================================
+# DASHBOARD
+# =====================================================
+
+@app.route("/dashboard")
+def dashboard():
+
+    if "username" not in session:
+        return redirect(url_for("home"))
+
+    current_path = request.args.get("path", "")
+    user_root = os.path.join("uploads", session["username"])
+    full_path = os.path.join(user_root, current_path)
+
+    if not os.path.exists(full_path):
+        return redirect(url_for("dashboard"))
+
+    items = []
+
+    if current_path == "":
+        items.append({
+            "name": "🗑 Kosz",
+            "is_folder": True
+        })
+
+    for item in os.listdir(full_path):
+        item_path = os.path.join(full_path, item)
+        items.append({
+            "name": item,
+            "is_folder": os.path.isdir(item_path)
+        })    
+
+    # 🔥 liczenie zajętego miejsca (w MB)
+    total_size = 0
+    for root, dirs, files in os.walk(user_root):
+        for f in files:
+            try:
+                total_size += os.path.getsize(os.path.join(root, f))
+            except:
+                pass
+
+    storage_used = round(total_size / (1024 * 1024), 2)
+
+    # 🔥 pobranie limitu z bazy (w MB)
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+    c.execute("SELECT storage_limit FROM users WHERE username = ?", (session["username"],))
+    result = c.fetchone()
+    conn.close()
+
+    storage_limit = round(result[0], 2) if result else 100
+
+    # 🔥 procent wykorzystania
+    if storage_limit > 0:
+        usage_percent = round((storage_used / storage_limit) * 100, 1)
+    else:
+        usage_percent = 0
+
+    return render_template(
+        "index.html",
+        items=items,
+        current_path=current_path,
+        storage_used=storage_used,
+        storage_limit=storage_limit,
+        usage_percent=usage_percent,
+        in_trash=(current_path == ".trash")
+    )
+
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory('uploads', filename)
+
+
+# =====================================================
+# Upload
+# =====================================================
+
+@app.route("/upload", methods=["POST"])
+def upload():
+    if "username" not in session:
+        return redirect(url_for("home"))
+
+    username = session["username"]
+    current_path = request.form.get("current_path", "")
+    files = request.files.getlist("file")
+
+    if not files or files[0].filename == "":
+        return redirect(url_for("dashboard", path=current_path))
+
+    # 1. Przygotuj ścieżki
+    user_root = get_user_base_folder(username) # korzystamy z Twojej funkcji pomocniczej
+    save_path = os.path.normpath(os.path.join(user_root, current_path))
+    os.makedirs(save_path, exist_ok=True)
+
+    # 2. Pobierz limit użytkownika z bazy
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+    c.execute("SELECT storage_limit FROM users WHERE username = ?", (username,))
+    result = c.fetchone()
+    conn.close()
+
+    if not result:
+        flash("Błąd użytkownika")
+        return redirect(url_for("dashboard", path=current_path))
+
+    storage_limit_mb = result[0]
+    
+    # 3. Policz aktualnie zajęte miejsce (w bajtach)
+    current_usage_bytes = get_folder_size(user_root)
+
+    # 4. Przetwórz każdy plik
+    for file in files:
+        print("UPLOAD:", repr(file.filename))
+        if file and file.filename != "":
+            filename = secure_filename(file.filename)
+            
+            # Sprawdź rozmiar nowego pliku
+            file.seek(0, os.SEEK_END)
+            file_size_bytes = file.tell()
+            file.seek(0)
+
+            # Sprawdź czy nie przekroczy limitu (przeliczamy bajty na MB)
+            if (current_usage_bytes + file_size_bytes) / (1024 * 1024) > storage_limit_mb:
+                flash(f"Błąd: Plik {filename} przekroczyłby Twój limit miejsca!")
+                continue # Pomiń ten plik i idź do następnego
+
+            # 5. Zapisz plik
+            file_path = os.path.join(save_path, filename)
+            file.save(file_path)
+           
+            # Automatyczne rozpakowanie ZIP
+            if filename.lower().endswith(".zip"):
+                try:
+                    import zipfile
+
+                    with zipfile.ZipFile(file_path, "r") as zip_ref:
+                        for member in zip_ref.infolist():
+
+                            if member.filename.startswith("__MACOSX/"):
+                                continue
+
+                            try:
+                                fixed_name = member.filename.encode("cp437").decode("utf-8")
+                            except:
+                                fixed_name = member.filename
+
+                            target = os.path.join(save_path, fixed_name)
+
+                            if member.is_dir():
+                                os.makedirs(target, exist_ok=True)
+                            else:
+                                os.makedirs(os.path.dirname(target), exist_ok=True)
+
+                                with zip_ref.open(member) as src:
+                                    with open(target, "wb") as dst:
+                                        shutil.copyfileobj(src, dst)
+
+                    os.remove(file_path)
+
+                except Exception as e:
+                    print("BŁĄD ZIP:", e)
+                    flash(f"Błąd rozpakowania ZIP: {e}")
+          
+            # Aktualizuj licznik zajętego miejsca dla kolejnych plików w tej samej pętli
+            current_usage_bytes += file_size_bytes
+
+            # 6. Generuj miniaturkę (tylko dla obrazów)
+            ext = filename.rsplit('.', 1)[-1].lower()
+            if ext in ['jpg', 'jpeg', 'png', 'gif']:
+                generate_thumb(file_path)
+
+    return redirect(url_for("dashboard", path=current_path))
+
+
+# =====================================================
+# ADMIN
+# =====================================================
+
+@app.route("/admin")
+def admin_panel():
+    if not is_logged_in() or not is_admin():
+        abort(403)
+
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+    c.execute("SELECT id, username, role, storage_limit FROM users")
+    users = c.fetchall()
+    conn.close()
+
+    return render_template(
+        "admin.html",
+        users=users,
+        total_users=len(users)
+    )
+
+# =====================================================
+# ADMIN ZMIANA POJEMNOSCI DYSKU
+# =====================================================
+
+@app.route("/admin/update_limit/<int:user_id>", methods=["POST"])
+def update_limit(user_id):
+    if not is_logged_in() or not is_admin():
+        abort(403)
+
+    try:
+        new_limit = float(request.form.get("storage_limit"))
+        if new_limit <= 0:
+            new_limit = 100
+    except:
+        new_limit = 100
+
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+    c.execute("UPDATE users SET storage_limit = ? WHERE id = ?", (new_limit, user_id))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("admin_panel"))
+
+# =====================================================
+# DODAJ UŻYTKOWNIKA
+# =====================================================
+
+@app.route("/admin/add_user", methods=["POST"])
+def add_user():
+    if not is_logged_in() or not is_admin():
+        abort(403)
+
+    username = request.form.get("username")
+    password = request.form.get("password")
+    role = request.form.get("role", "user")
+
+    if not username or not password:
+        flash("Brak danych do utworzenia użytkownika", "error")
+        return redirect(url_for("admin_panel"))
+
+    hashed_password = generate_password_hash(password)
+
+    try:
+        storage_limit = float(request.form.get("storage_limit", 100))
+        if storage_limit <= 0:
+            storage_limit = 100
+    except:
+        storage_limit = 100
+
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+
+    try:
+        c.execute("""
+            INSERT INTO users (username, password, role, storage_limit)
+            VALUES (?, ?, ?, ?)
+        """, (username, hashed_password, role, storage_limit))
+
+        conn.commit()
+        conn.close()
+
+        os.makedirs(os.path.join(UPLOAD_FOLDER, username), exist_ok=True)
+
+        flash(f"Użytkownik {username} został utworzony", "success")
+
+    except sqlite3.IntegrityError:
+        conn.close()
+        flash("Użytkownik już istnieje", "error")
+
+    return redirect(url_for("admin_panel"))
+
+# =====================================================
+# USUWANIE UŻYTKOWNIKA
+# =====================================================
+
+@app.route("/admin/delete_user", methods=["POST"])
+def delete_user():
+    if not is_logged_in() or not is_admin():
+        abort(403)
+
+    username = request.form.get("username")
+
+    if not username:
+        return "Brak użytkownika", 400
+
+    if username == session.get("username"):
+        return "Nie możesz usunąć samego siebie", 400
+
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+
+    c.execute("SELECT id FROM users WHERE username = ?", (username,))
+    user = c.fetchone()
+
+    if not user:
+        conn.close()
+        return "Użytkownik nie istnieje", 404
+
+    c.execute("DELETE FROM users WHERE username = ?", (username,))
+    conn.commit()
+    conn.close()
+
+    user_folder = os.path.join(UPLOAD_FOLDER, username)
+    if os.path.exists(user_folder):
+        shutil.rmtree(user_folder)
+
+    return redirect(url_for("admin_panel"))
+
+
+# =====================================================
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=False)
