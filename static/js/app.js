@@ -1,3 +1,4 @@
+
 console.log("window.currentPath =", window.currentPath);
 document.addEventListener("DOMContentLoaded", function () {
 const dropZone = document.getElementById("drop-zone");
@@ -160,6 +161,21 @@ const contextMenu = document.getElementById("context-menu");
 
 let currentItem = "";
 
+function getSelectedItems() {
+
+    let selected = [];
+
+    document.querySelectorAll(".item-checkbox:checked").forEach(cb => {
+        selected.push(cb.dataset.name);
+    });
+
+    if (selected.length === 0) {
+        selected.push(currentItem);
+    }
+
+    return selected;
+}
+
 document.querySelectorAll(".file-row").forEach(row => {
 
     row.addEventListener("contextmenu", function(e) {
@@ -241,7 +257,10 @@ document.getElementById("ctx-copy").onclick = function() {
     let itemsInput = document.createElement("input");
     itemsInput.type = "hidden";
     itemsInput.name = "items";
-    itemsInput.value = JSON.stringify([currentItem]);
+
+    let selected = getSelectedItems();
+
+    itemsInput.value = JSON.stringify(selected);
 
     form.appendChild(pathInput);
     form.appendChild(itemsInput);
@@ -280,16 +299,57 @@ document.getElementById("ctx-paste").onclick = function() {
 };
 
 
+
 // =====================================
 // MENU KONTEKSTOWE - PRZENIEŚ
 // =====================================
 
 document.getElementById("ctx-move").onclick = function() {
 
+    let selected = getSelectedItems();
+
+    if (selected.length > 1) {
+
+        let targetFolder = prompt(
+            "Podaj folder docelowy:"
+        );
+
+        if (!targetFolder)
+            return;
+
+        let form = document.createElement("form");
+
+        form.method = "POST";
+        form.action = "/bulk_move";
+
+        let pathInput = document.createElement("input");
+        pathInput.type = "hidden";
+        pathInput.name = "current_path";
+        pathInput.value = window.currentPath;
+
+        let itemsInput = document.createElement("input");
+        itemsInput.type = "hidden";
+        itemsInput.name = "items";
+        itemsInput.value = JSON.stringify(selected);
+
+        let targetInput = document.createElement("input");
+        targetInput.type = "hidden";
+        targetInput.name = "target_folder";
+        targetInput.value = targetFolder;
+
+        form.appendChild(pathInput);
+        form.appendChild(itemsInput);
+        form.appendChild(targetInput);
+
+        document.body.appendChild(form);
+        form.submit();
+
+        return;
+    }
+
     moveItem(currentItem);
 
 };
-
 
 // =====================================
 // MENU KONTEKSTOWE - ZMIEŃ NAZWĘ
@@ -319,202 +379,43 @@ document.getElementById("ctx-versions").onclick = function() {
 // MENU KONTEKSTOWE - USUŃ
 // =====================================
 
-document.getElementById("ctx-delete").onclick = function() {
+const restoreBtn = document.getElementById("ctx-restore");
 
-    if (!confirm("Usunąć element?"))
-        return;
+if (restoreBtn) {
 
-    let form = document.createElement("form");
-
-    form.method = "POST";
-    form.action = "/bulk_delete";
-
-    let pathInput = document.createElement("input");
-    pathInput.type = "hidden";
-    pathInput.name = "current_path";
-    pathInput.value = window.currentPath;
-
-    let itemsInput = document.createElement("input");
-    itemsInput.type = "hidden";
-    itemsInput.name = "items";
-    itemsInput.value = JSON.stringify([currentItem]);
-
-    form.appendChild(pathInput);
-    form.appendChild(itemsInput);
-
-    document.body.appendChild(form);
-    form.submit();
-
-};
-
-// MENU KONTEKSTOWE - POBIERZ
-// =====================================
-
-document.getElementById("ctx-download").onclick = function () {
-
-    alert(window.currentPath);
+    restoreBtn.onclick = function() {
 
     window.location =
-        "/download?path=" +
-        encodeURIComponent(window.currentPath || "") +
-        "&name=" +
+        "/restore?name=" +
         encodeURIComponent(currentItem);
+
 };
 
-// =====================================
-// ZAMKNIĘCIE MENU PO KLIKNIĘCIU POZA NIM
-// =====================================
+}
 
-document.addEventListener("click", function(e) {
+const deleteBtn = document.getElementById("ctx-delete");
 
-    if (!contextMenu.contains(e.target)) {
-        contextMenu.classList.add("hidden");
-    }
+if (deleteBtn) {
 
+deleteBtn.onclick = function() {
+
+let selected = [];
+
+document.querySelectorAll(".item-checkbox:checked").forEach(cb => {
+    selected.push(cb.dataset.name);
 });
 
-function runBulkAction() {
-
-    let action =
-        document.getElementById("bulk-action").value;
-
-    alert("ACTION = " + action);
-
-    let selected = [];
-
-    document.querySelectorAll(".item-checkbox:checked")
-    .forEach(cb => {
-
-        selected.push(cb.dataset.name);
-
-    });
-    
-    if (action === "paste") {
-
-    let form = document.createElement("form");
-
-    form.method = "POST";
-    form.action = "/clipboard_paste";
-
-    let pathInput = document.createElement("input");
-    pathInput.type = "hidden";
-    pathInput.name = "current_path";
-    pathInput.value = window.currentPath;
-
-    form.appendChild(pathInput);
-
-    document.body.appendChild(form);
-    alert(form.action);
-    form.submit();
-
-    return;
+if (selected.length === 0) {
+    selected = [currentItem];
 }
 
-    if (selected.length === 0) {
-
-        alert("Nie zaznaczono plików.");
-        return;
-    }
-
-    if (action === "download") {
-
-    if (selected.length > 1) {
-        alert("Dla wielu plików użyj 'Pobierz ZIP'.");
-        return;
-    }
-
-    window.location =
-        "/download?path=" +
-        encodeURIComponent(window.currentPath) +
-        "&name=" +
-        encodeURIComponent(selected[0]);
-
+if (!confirm("Usunąć " + selected.length + " element(y)?"))
     return;
-}
 
-    if (action === "share") {
-
-    if (selected.length !== 1) {
-
-        alert("Zaznacz dokładnie jeden plik.");
-        return;
-    }
-
-    window.location =
-        "/share_create?path=" +
-        encodeURIComponent(window.currentPath) +
-        "&name=" +
-        encodeURIComponent(selected[0]);
-
-    return;
-}
-
-    if (action === "zip") {
-
-    let form = document.createElement("form");
-
-    form.method = "POST";
-    form.action = "/bulk_zip";
-
-    let pathInput = document.createElement("input");
-    pathInput.type = "hidden";
-    pathInput.name = "current_path";
-    pathInput.value = window.currentPath;
-
-    let itemsInput = document.createElement("input");
-    itemsInput.type = "hidden";
-    itemsInput.name = "items";
-    itemsInput.value = JSON.stringify(selected);
-
-    form.appendChild(pathInput);
-    form.appendChild(itemsInput);
-
-    document.body.appendChild(form);
-    document.body.appendChild(form);
-    form.target = "_blank";
-    form.submit();
-
-    return;
-}
-
-    if (action === "delete") {
-
-        if (!confirm(
-            "Usunąć zaznaczone elementy?"
-        )) {
-            return;
-        }
-
-        let form = document.createElement("form");
-
-        form.method = "POST";
-        form.action = "/bulk_delete";
-
-        let pathInput = document.createElement("input");
-        pathInput.type = "hidden";
-        pathInput.name = "current_path";
-        pathInput.value = window.currentPath;
-
-        let itemsInput = document.createElement("input");
-        itemsInput.type = "hidden";
-        itemsInput.name = "items";
-        itemsInput.value = JSON.stringify(selected);
-
-        form.appendChild(pathInput);
-        form.appendChild(itemsInput);
-
-        document.body.appendChild(form);
-        form.submit();
-
-        return;
-    }
-
-    if (action === "clipboard_copy") {
-    
-    let form = document.createElement("form");
+let form = document.createElement("form");
 
 form.method = "POST";
-form.action = "/clipboard_copy";
+form.action = "/bulk_delete";
 
 let pathInput = document.createElement("input");
 pathInput.type = "hidden";
@@ -530,98 +431,42 @@ form.appendChild(pathInput);
 form.appendChild(itemsInput);
 
 document.body.appendChild(form);
+form.submit();
 
-fetch("/clipboard_copy", {
-    method: "POST",
-    body: new FormData(form)
+};
+
+}
+
+// MENU KONTEKSTOWE - POBIERZ
+// =====================================
+
+const downloadBtn = document.getElementById("ctx-download");
+
+if (downloadBtn) {
+
+downloadBtn.onclick = function () {
+
+    alert(window.currentPath);
+
+    window.location =
+        "/download?path=" +
+        encodeURIComponent(window.currentPath || "") +
+        "&name=" +
+        encodeURIComponent(currentItem);
+};
+
+}
+// =====================================
+// ZAMKNIĘCIE MENU PO KLIKNIĘCIU POZA NIM
+// =====================================
+
+document.addEventListener("click", function(e) {
+
+    if (!contextMenu.contains(e.target)) {
+        contextMenu.classList.add("hidden");
+    }
+
 });
-
-alert("Skopiowano do schowka.");
-
-return;
-
-}
-
-   if (action === "copy") {
-
-    let targetFolder = prompt(
-        "Podaj folder docelowy:"
-    );
-
-    if (!targetFolder)
-        return;
-
-    let form = document.createElement("form");
-
-    form.method = "POST";
-    form.action = "/bulk_copy";
-
-    let pathInput = document.createElement("input");
-    pathInput.type = "hidden";
-    pathInput.name = "current_path";
-    pathInput.value = window.currentPath;
-
-    let itemsInput = document.createElement("input");
-    itemsInput.type = "hidden";
-    itemsInput.name = "items";
-    itemsInput.value = JSON.stringify(selected);
-
-    let targetInput = document.createElement("input");
-    targetInput.type = "hidden";
-    targetInput.name = "target_folder";
-    targetInput.value = targetFolder;
-
-    form.appendChild(pathInput);
-    form.appendChild(itemsInput);
-    form.appendChild(targetInput);
-
-    document.body.appendChild(form);
-    form.submit();
-
-    return;
-}
-
-    if (action === "move") {
-
-    let targetFolder = prompt(
-        "Podaj folder docelowy:"
-    );
-
-    if (!targetFolder)
-        return;
-
-    let form = document.createElement("form");
-
-    form.method = "POST";
-    form.action = "/bulk_move";
-
-    let pathInput = document.createElement("input");
-    pathInput.type = "hidden";
-    pathInput.name = "current_path";
-    pathInput.value = window.currentPath;
-
-    let itemsInput = document.createElement("input");
-    itemsInput.type = "hidden";
-    itemsInput.name = "items";
-    itemsInput.value = JSON.stringify(selected);
-
-    let targetInput = document.createElement("input");
-    targetInput.type = "hidden";
-    targetInput.name = "target_folder";
-    targetInput.value = targetFolder;
-
-    form.appendChild(pathInput);
-    form.appendChild(itemsInput);
-    form.appendChild(targetInput);
-
-    document.body.appendChild(form);
-    form.submit();
-
-    return;
-}
-
-    alert("Ta akcja nie jest jeszcze gotowa.");
-}
 
 function copyItem(itemName) {
 
@@ -649,27 +494,24 @@ function copyItem(itemName) {
 
 function moveItem(itemName) {
 
-    let targetFolder = prompt(
-        "Podaj folder docelowy (np. Dokumenty lub Faktury/2026):"
-    );
+    openFolderModal(function(targetFolder) {
 
-    if (!targetFolder)
-        return;
+        let form = document.createElement("form");
 
-    let form = document.createElement("form");
+        form.method = "POST";
+        form.action = "/move";
 
-    form.method = "POST";
-    form.action = "/move";
+        form.innerHTML = `
+            <input type="hidden" name="current_path" value="${window.currentPath}">
+            <input type="hidden" name="item_name" value="${itemName}">
+            <input type="hidden" name="target_folder" value="${targetFolder}">
+        `;
 
-    form.innerHTML = `
-        <input type="hidden" name="current_path" value="${window.currentPath}">
-        <input type="hidden" name="item_name" value="${itemName}">
-        <input type="hidden" name="target_folder" value="${targetFolder}">
-    `;
+        document.body.appendChild(form);
+        form.submit();
 
-    document.body.appendChild(form);
-    form.submit();
+    });
+
 }
-
 
 });

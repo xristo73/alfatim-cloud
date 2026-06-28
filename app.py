@@ -1,5 +1,5 @@
 
-from flask import Flask, render_template, request, redirect, url_for, session, abort, send_from_directory, send_file, flash
+from flask import Flask, render_template, request, redirect, url_for, session, abort, send_from_directory, send_file, flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from PIL import Image
@@ -10,8 +10,10 @@ from utils.security import is_logged_in, is_admin
 from utils.helpers import get_folder_size, generate_thumb
 from routes.auth import auth_bp
 from routes.sharing import sharing_bp
+from routes.clipboard import clipboard_bp
 from services.user_service import get_user, get_user_limit
 from utils.decorators import login_required, admin_required
+from routes.trash import trash_bp
 import os
 import sqlite3
 import shutil
@@ -21,6 +23,8 @@ import config
 app = Flask(__name__)
 app.register_blueprint(auth_bp)
 app.register_blueprint(sharing_bp)
+app.register_blueprint(clipboard_bp)
+app.register_blueprint(trash_bp)
 app.secret_key = config.SECRET_KEY
 app.config["MAX_CONTENT_LENGTH"] = config.MAX_CONTENT_LENGTH
 app.teardown_appcontext(close_db)
@@ -281,19 +285,29 @@ def delete():
 # Przywracanie z kosza
 # =====================================================
 
-@app.route("/restore")
-@login_required
-def restore():
 
-    item_name = request.args.get("name")
+# =====================================================
+# Opróżnij kosz
+# =====================================================
+
+@app.route("/empty_trash", methods=["POST"])
+@login_required
+def empty_trash():
 
     user_root = get_user_base_folder(session["username"])
+    trash_dir = os.path.join(user_root, ".trash")
 
-    source = os.path.join(user_root, ".trash", item_name)
-    destination = os.path.join(user_root, item_name)
+    if os.path.isdir(trash_dir):
 
-    if os.path.exists(source):
-        shutil.move(source, destination)
+        for item in os.listdir(trash_dir):
+
+            path = os.path.join(trash_dir, item)
+
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+
+            else:
+                os.remove(path)
 
     return redirect(url_for("dashboard", path=".trash"))
 
@@ -463,175 +477,6 @@ def copy():
     return redirect(url_for("dashboard", path=current_path))
 
 # =====================================================
-# Schowek - kopiuj
-# =====================================================
-
-@app.route("/clipboard_copy", methods=["POST"])
-def clipboard_copy():
-
-    if "username" not in session:
-        return redirect(url_for("home"))
-
-    import json
-
-    session["clipboard"] = {
-        "action": "copy",
-        "current_path": request.form.get("current_path", ""),
-        "items": json.loads(
-            request.form.get("items", "[]")
-        )
-    }
-    print("CLIPBOARD:", session["clipboard"])
-    print("SESSION:", dict(session))
-    return "OK"
-
-# =====================================================
-# Schowek - wklej
-# =====================================================
-
-@app.route("/clipboard_paste", methods=["POST"])
-def clipboard_paste():
-
-    if "username" not in session:
-        return redirect(url_for("home"))
-
-    clipboard = session.get("clipboard")
-    
-    print("CLIPBOARD:", clipboard)
-    print("TARGET:", request.form.get("current_path", ""))
-
-    if not clipboard:
-        return redirect(url_for("dashboard"))
-
-    user_root = os.path.join(
-        "uploads",
-        session["username"]
-    )
-
-    target_path = request.form.get(
-        "current_path",
-        ""
-    )
-
-    destination_dir = os.path.join(
-        user_root,
-        target_path
-    )
-
-    source_path = clipboard["current_path"]
-    
-    print("SOURCE PATH:", source_path)
-    print("DESTINATION:", destination_dir)    
-
-    for item_name in clipboard["items"]:
-
-        source = os.path.join(
-            user_root,
-            source_path,
-            item_name
-        )
-
-        destination = os.path.join(
-            destination_dir,
-            item_name
-        )
-
-        if os.path.isfile(source):
-
-            shutil.copy2(
-                source,
-                destination
-            )
-
-        elif os.path.isdir(source):
-
-            shutil.copytree(
-                source,
-                destination,
-                dirs_exist_ok=True
-            )
-
-    return redirect(
-        url_for(
-            "dashboard",
-            path=target_path
-        )
-    )
-
-
-# =====================================================
-# Kopiowanie wielu elementów
-# =====================================================
-
-@app.route("/bulk_copy", methods=["POST"])
-def bulk_copy():
-
-    if "username" not in session:
-        return redirect(url_for("home"))
-
-    import json
-
-    current_path = request.form.get("current_path", "")
-    target_folder = request.form.get("target_folder", "")
-
-    items = json.loads(
-        request.form.get("items", "[]")
-    )
-
-    user_root = os.path.join(
-        "uploads",
-        session["username"]
-    )
-
-    destination_dir = os.path.join(
-        user_root,
-        target_folder
-    )
-
-    if not os.path.isdir(destination_dir):
-        return redirect(
-            url_for(
-                "dashboard",
-                path=current_path
-            )
-        )
-
-    for item_name in items:
-
-        source = os.path.join(
-            user_root,
-            current_path,
-            item_name
-        )
-
-        destination = os.path.join(
-            destination_dir,
-            item_name
-        )
-
-        if os.path.isfile(source):
-
-            shutil.copy2(
-                source,
-                destination
-            )
-
-        elif os.path.isdir(source):
-
-            shutil.copytree(
-                source,
-                destination,
-                dirs_exist_ok=True
-            )
-
-    return redirect(
-        url_for(
-            "dashboard",
-            path=current_path
-        )
-    )
-
-# =====================================================
 # Pobieranie ZIP wielu plików
 # =====================================================
 
@@ -721,67 +566,6 @@ def bulk_zip():
     )
 
 # =====================================================
-# Przenoszenie wielu elementów
-# =====================================================
-
-@app.route("/bulk_move", methods=["POST"])
-def bulk_move():
-
-    if "username" not in session:
-        return redirect(url_for("home"))
-
-    import json
-    target_folder = request.form.get("target_folder", "")
-
-    items = json.loads(
-        request.form.get("items", "[]")
-    )
-
-    user_root = os.path.join(
-        "uploads",
-        session["username"]
-    )
-
-    destination_dir = os.path.join(
-        user_root,
-        target_folder
-    )
-
-    if not os.path.isdir(destination_dir):
-        return redirect(
-            url_for(
-                "dashboard",
-                path=current_path
-            )
-        )
-
-    for item_name in items:
-
-        source = os.path.join(
-            user_root,
-            current_path,
-            item_name
-        )
-
-        destination = os.path.join(
-            destination_dir,
-            item_name
-        )
-
-        if os.path.exists(source):
-            shutil.move(
-                source,
-                destination
-            )
-
-    return redirect(
-        url_for(
-            "dashboard",
-            path=current_path
-        )
-    )
-
-# =====================================================
 # Usuwanie wielu elementów
 # =====================================================
 
@@ -790,6 +574,11 @@ def bulk_delete():
 
     if "username" not in session:
         return redirect(url_for("home"))
+
+    print("=== BULK DELETE ===")
+    print(request.form)
+    print(request.form.get("items"))
+
 
     import json
 
@@ -886,7 +675,96 @@ def move():
         )
 
     return redirect(url_for("dashboard", path=current_path))
+
+#====================================================
+# BlukMove
+#===================================================
+
+@app.route("/bulk_move", methods=["POST"])
+def bulk_move():
+
+    app.logger.error("=== MOVE ===")
+    app.logger.error(request.form)
+    app.logger.error("item_name = %s", request.form.get("item_name"))
+    app.logger.error("target_folder = %s", request.form.get("target_folder"))
+    app.logger.error("current_path = %s", request.form.get("current_path"))
+
+    if "username" not in session:
+        return redirect(url_for("home"))
+
+    import json
+    target_folder = request.form.get("target_folder", "")
+    current_path = request.form.get("current_path", "")
+
+    items = json.loads(
+        request.form.get("items", "[]")
+    )
+
+    user_root = os.path.join(
+        "uploads",
+        session["username"]
+    )
+
+    destination_dir = os.path.join(
+        user_root,
+        target_folder
+    )
+
+    if not os.path.isdir(destination_dir):
+        return redirect(
+            url_for(
+                "dashboard",
+                path=current_path
+            )
+        )
+
+    for item_name in items:
+
+        source = os.path.join(
+            user_root,
+            current_path,
+            item_name
+        )
+
+        destination = os.path.join(
+            destination_dir,
+            item_name
+        )
+
+        if os.path.exists(source):
+            shutil.move(
+                source,
+                destination
+            )
+
+    return redirect(
+        url_for(
+            "dashboard",
+            path=current_path
+        )
+    )
  
+@app.route("/folders")
+def folders():
+
+    if "username" not in session:
+        return jsonify([])
+
+    user_root = get_user_base_folder(session["username"])
+
+    result = []
+
+    for root, dirs, files in os.walk(user_root):
+
+        rel = os.path.relpath(root, user_root)
+
+        if rel == ".":
+            rel = ""
+
+        result.append(rel)
+
+    return jsonify(sorted(result))
+
 # =====================================================
 # DASHBOARD
 # =====================================================

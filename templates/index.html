@@ -184,26 +184,21 @@ body {
         Zaznacz wszystko
     </label>
 
-    <span id="selected-count">Wybrano: 0</span>
+<span id="selected-count">Wybrano: 0</span>
 
-    <select id="bulk-action"
-            class="border rounded px-2 py-1">
-        <option value="">Akcje...</option>
-        <option value="download">Pobierz</option>
-        <option value="zip">📦 Pobierz ZIP</option>
-        <option value="share">📤 Udostępnij</option>
-        <option value="clipboard_copy">📋 Kopiuj</option>
-        <option value="paste">📌 Wklej</option>
-        <option value="copy">📂 Kopiuj do folderu</option>
-        <option value="move">Przenieś</option>
-        <option value="delete">Usuń</option>
-    </select>
+{% if in_trash %}
+<form method="POST"
+      action="{{ url_for('empty_trash') }}"
+      onsubmit="return confirm('Na pewno opróżnić kosz?');"
+      class="inline">
 
-    <button type="button"
-            onclick="runBulkAction()"
-            class="bg-black text-white px-3 py-1 rounded">
-        Wykonaj
+    <button type="submit"
+            class="ml-4 bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">
+        🗑 Opróżnij kosz
     </button>
+
+</form>
+{% endif %}
 
 </div>
 
@@ -273,87 +268,135 @@ body {
 </div>
 </div>
 
+
 <!-- MENU KONTEKSTOWE -->
 
 <div id="context-menu"
      class="hidden fixed bg-white border rounded-lg shadow-xl w-64 z-50">
 
-    <button type="button"
-            id="ctx-open"
-            class="block w-full text-left px-4 py-2 hover:bg-gray-100">
-        📂 Otwórz
-    </button>
+<button type="button"
+        id="ctx-open"
+        class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+    📂 Otwórz
+</button>
 
-    <hr>
+<hr>
 
-    <button type="button"
-            id="ctx-download"
-            class="block w-full text-left px-4 py-2 hover:bg-gray-100">
-        📥 Pobierz
-    </button>
-    <hr>
+<button type="button"
+        id="ctx-download"
+        class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+    📥 Pobierz
+</button>
 
-    <button type="button"
-            id="ctx-zip"
-            class="block w-full text-left px-4 py-2 hover:bg-gray-100">
-        📦 Pobierz ZIP
-    </button>
+<hr>
 
-    <hr>
+<button type="button"
+        id="ctx-zip"
+        class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+    📦 Pobierz ZIP
+</button>
 
-    <button type="button"
-            id="ctx-share"
-            class="block w-full text-left px-4 py-2 hover:bg-gray-100">
-        📤 Udostępnij
-    </button>
+<hr>
 
-    <hr>
+<button type="button"
+        id="ctx-share"
+        class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+    📤 Udostępnij
+</button>
 
-    <button type="button"
-            id="ctx-copy"
-            class="block w-full text-left px-4 py-2 hover:bg-gray-100">
-        📋 Kopiuj
+<hr>
 
+<button type="button"
+        id="ctx-copy"
+        class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+    📋 Kopiuj
+</button>
 
-    </button>
-    <hr>
+<hr>
 
-    <button type="button"
-            id="ctx-paste"
-            class="block w-full text-left px-4 py-2 hover:bg-gray-100">
-        📌 Wklej
-    </button>
-    <hr>
+<button type="button"
+        id="ctx-paste"
+        class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+    📌 Wklej
+</button>
 
-    <button type="button"
-            id="ctx-move"
-            class="block w-full text-left px-4 py-2 hover:bg-gray-100">
-        📂 Przenieś
-    </button>
+<hr>
 
-    <hr>
+<button type="button"
+        id="ctx-move"
+        class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+    📂 Przenieś
+</button>
 
-    <button type="button"
-            id="ctx-rename"
-            class="block w-full text-left px-4 py-2 hover:bg-gray-100">
-        ✏️ Zmień nazwę
-    </button>
-    <hr>
+<hr>
 
-    <button type="button"
-            id="ctx-versions"
-            class="block w-full text-left px-4 py-2 hover:bg-gray-100">
-        🕓 Wersje
-    </button>
+<button type="button"
+        id="ctx-rename"
+        class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+    ✏️ Zmień nazwę
+</button>
 
-    <hr>
+<hr>
 
-    <button type="button"
-            id="ctx-delete"
-            class="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50">
-        🗑 Usuń
-    </button>
-    <hr>
+<button type="button"
+        id="ctx-versions"
+        class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+    🕓 Wersje
+</button>
+
+<hr>
+
+<button type="button"
+        id="ctx-restore"
+        class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+    ♻️ Przywróć
+</button>
+
+<hr>
+
+<button type="button"
+        id="ctx-delete"
+        class="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50">
+    🗑 Usuń
+</button>
+
+</div>
+
+<!-- ===================================== -->
+<!-- OKNO WYBORU FOLDERU -->
+<!-- ===================================== -->
+
+<div id="folder-modal"
+     class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
+    <div class="bg-white rounded-xl shadow-xl w-[500px]">
+
+        <div class="p-4 border-b font-bold text-lg">
+            📁 Wybierz folder docelowy
+        </div>
+
+        <div id="folder-list"
+             class="max-h-96 overflow-y-auto p-4">
+
+            Tutaj będą foldery...
+
+        </div>
+
+        <div class="border-t p-4 flex justify-end gap-2">
+
+            <button id="folder-cancel"
+                    class="border px-4 py-2 rounded">
+                Anuluj
+            </button>
+
+            <button id="folder-ok"
+                    class="bg-blue-600 text-white px-4 py-2 rounded">
+                OK
+            </button>
+
+        </div>
+
+    </div>
 
 </div>
 
@@ -362,5 +405,7 @@ window.currentPath = {{ current_path|tojson }};
 </script>
 
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+<script src="{{ url_for('static', filename='js/folder_modal.js') }}"></script>
 
 {% endblock %}

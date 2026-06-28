@@ -1,0 +1,13 @@
+venv/
+__pycache__/
+*.pyc
+
+uploads/
+
+users.db
+database.db
+
+*.backup
+*.log
+
+gunicorn.ctl
