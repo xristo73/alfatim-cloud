@@ -109,10 +109,10 @@ function renameItem(oldName) {
     form.action = "/rename";
 
     form.innerHTML = `
-        <input type="hidden" name="current_path" value="{{ current_path }}">
-        <input type="hidden" name="old_name" value="${oldName}">
-        <input type="hidden" name="new_name" value="${newName}">
-    `;
+    <input type="hidden" name="current_path" value="${window.currentPath}">
+    <input type="hidden" name="old_name" value="${oldName}">
+    <input type="hidden" name="new_name" value="${newName}">
+`;
 
     document.body.appendChild(form);
     form.submit();

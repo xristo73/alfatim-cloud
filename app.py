@@ -135,7 +135,7 @@ def view_file():
     current_path = request.args.get("path", "")
     filename = request.args.get("name")
 
-    user_root = os.path.join("uploads", session["username"])
+    user_root = get_user_base_folder(session["username"])
     folder = os.path.join(user_root, current_path)
 
     # Pełna ścieżka do pliku dla szablonu
@@ -179,7 +179,7 @@ def view_file():
 @login_required
 def serve_file(filepath):
 
-    user_root = os.path.join("uploads", session["username"])
+    user_root = get_user_base_folder(session["username"])
 
 
     folder = os.path.dirname(filepath)
@@ -194,7 +194,7 @@ def serve_file(filepath):
 @login_required
 def download(filepath):
 
-    user_root = os.path.join("uploads", session["username"])
+    user_root = get_user_base_folder(session["username"])
 
     folder = os.path.dirname(filepath)
     filename = os.path.basename(filepath)
@@ -216,7 +216,7 @@ def download_file():
     current_path = request.args.get("path", "")
     filename = request.args.get("name")
 
-    user_root = os.path.join("uploads", session["username"])
+    user_root = get_user_base_folder(session["username"])
     folder = os.path.join(user_root, current_path)
 
     return send_from_directory(
@@ -237,7 +237,7 @@ def create_folder():
     folder_name = secure_filename(request.form.get("folder_name"))
     current_path = request.form.get("current_path", "")
 
-    user_root = os.path.join("uploads", session["username"])
+    user_root = get_user_base_folder(session["username"])
     new_folder = os.path.join(user_root, current_path, folder_name)
 
     os.makedirs(new_folder, exist_ok=True)
@@ -255,7 +255,7 @@ def delete():
     current_path = request.args.get("path", "")
     item_name = request.args.get("name")
 
-    user_root = os.path.join("uploads", session["username"])
+    user_root = get_user_base_folder(session["username"])
     target = os.path.join(user_root, current_path, item_name)
 
     trash_dir = os.path.join(user_root, ".trash")
@@ -285,7 +285,7 @@ def restore():
 
     item_name = request.args.get("name")
 
-    user_root = os.path.join("uploads", session["username"])
+    user_root = get_user_base_folder(session["username"])
 
     source = os.path.join(user_root, ".trash", item_name)
     destination = os.path.join(user_root, item_name)
@@ -306,7 +306,7 @@ def restore_version():
     filename = request.args.get("name")
     version = request.args.get("version")
 
-    user_root = os.path.join("uploads", session["username"])
+    user_root = get_user_base_folder(session["username"])
 
     current_file = os.path.join(user_root, filename)
     version_file = os.path.join(
@@ -347,7 +347,7 @@ def search():
 
     query = request.args.get("q", "").lower()
 
-    user_root = os.path.join("uploads", session["username"])
+    user_root = get_user_base_folder(session["username"])
 
     results = []
 
@@ -464,14 +464,21 @@ def rename():
     current_path = request.form.get("current_path", "")
     old_name = request.form.get("old_name")
     new_name = request.form.get("new_name")
+    print("OLD:", repr(old_name))
+    print("NEW:", repr(new_name))
+    print("PATH:", repr(current_path))
 
     if not old_name or not new_name:
         return redirect(url_for("dashboard", path=current_path))
 
-    user_root = os.path.join("uploads", session["username"])
+    user_root = get_user_base_folder(session["username"])
 
     old_path = os.path.join(user_root, current_path, old_name)
     new_path = os.path.join(user_root, current_path, new_name)
+
+    print("OLD PATH:", old_path)
+    print("NEW PATH:", new_path)
+    print("EXISTS:", os.path.exists(old_path))
 
     if os.path.exists(old_path):
         os.rename(old_path, new_path)
