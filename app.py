@@ -9,6 +9,7 @@ from utils.paths import get_user_base_folder, secure_user_path
 from utils.security import is_logged_in, is_admin
 from utils.helpers import get_folder_size, generate_thumb
 from routes.auth import auth_bp
+from routes.sharing import sharing_bp
 from services.user_service import get_user, get_user_limit
 from utils.decorators import login_required, admin_required
 import os
@@ -19,6 +20,7 @@ import secrets
 import config
 app = Flask(__name__)
 app.register_blueprint(auth_bp)
+app.register_blueprint(sharing_bp)
 app.secret_key = config.SECRET_KEY
 app.config["MAX_CONTENT_LENGTH"] = config.MAX_CONTENT_LENGTH
 app.teardown_appcontext(close_db)
@@ -386,70 +388,7 @@ def search():
         query=query
     )
 
-# =====================================================
-# Udostępnianie plików
-# =====================================================
 
-@app.route("/share_create")
-def share_create():
-
-    if "username" not in session:
-        return redirect(url_for("home"))
-
-    current_path = request.args.get("path", "")
-    item_name = request.args.get("name")
-
-    filepath = os.path.join(
-        session["username"],
-        current_path,
-        item_name
-    )
-
-    token = secrets.token_hex(16)
-
-    db = get_db()
-    c = db.cursor()
-
-    c.execute(
-        "INSERT INTO shared_links (token, filepath) VALUES (?, ?)",
-        (token, filepath)
-    )
-
-    db.commit()
-
-    flash(
-        f"https://chmura.alfatim.pl/share/{token}",
-        "success"
-    )
-
-    return redirect(url_for("dashboard", path=current_path))
-
-@app.route("/share/<token>")
-def share_file(token):
-
-    db = get_db()
-    c = db.cursor()
-
-    c.execute(
-        "SELECT filepath FROM shared_links WHERE token=?",
-        (token,)
-    )
-
-    result = c.fetchone()
-
-    if not result:
-        abort(404)
-
-    filepath = result[0]
-
-    folder = os.path.dirname(filepath)
-    filename = os.path.basename(filepath)
-
-    return send_from_directory(
-        os.path.join("uploads", folder),
-        filename,
-        as_attachment=True
-    )
 
 # =====================================================
 # ZMIANA NAZWY
@@ -502,7 +441,7 @@ def copy():
     if not item_name or not target_folder:
         return redirect(url_for("dashboard", path=current_path))
 
-    user_root = os.path.join("uploads", session["username"])
+    user_root = get_user_base_folder(session["username"])
 
     source = os.path.join(user_root, current_path, item_name)
     destination_dir = os.path.join(user_root, target_folder)
@@ -542,7 +481,8 @@ def clipboard_copy():
             request.form.get("items", "[]")
         )
     }
-
+    print("CLIPBOARD:", session["clipboard"])
+    print("SESSION:", dict(session))
     return "OK"
 
 # =====================================================
@@ -556,6 +496,9 @@ def clipboard_paste():
         return redirect(url_for("home"))
 
     clipboard = session.get("clipboard")
+    
+    print("CLIPBOARD:", clipboard)
+    print("TARGET:", request.form.get("current_path", ""))
 
     if not clipboard:
         return redirect(url_for("dashboard"))
@@ -576,6 +519,9 @@ def clipboard_paste():
     )
 
     source_path = clipboard["current_path"]
+    
+    print("SOURCE PATH:", source_path)
+    print("DESTINATION:", destination_dir)    
 
     for item_name in clipboard["items"]:
 
@@ -928,7 +874,7 @@ def move():
     if not item_name or not target_folder:
         return redirect(url_for("dashboard", path=current_path))
 
-    user_root = os.path.join("uploads", session["username"])
+    user_root = get_user_base_folder(session["username"])
 
     source = os.path.join(user_root, current_path, item_name)
     destination_dir = os.path.join(user_root, target_folder)
@@ -952,7 +898,7 @@ def dashboard():
         return redirect(url_for("home"))
 
     current_path = request.args.get("path", "")
-    user_root = os.path.join("uploads", session["username"])
+    user_root = get_user_base_folder(session["username"])
     full_path = os.path.join(user_root, current_path)
 
     if not os.path.exists(full_path):
@@ -1315,7 +1261,7 @@ def show_versions():
 
     filename = request.args.get("name")
 
-    user_root = os.path.join("uploads", session["username"])
+    user_root = get_user_base_folder(session["username"])
     versions_dir = os.path.join(user_root, ".versions")
 
     versions = []

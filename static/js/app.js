@@ -191,7 +191,7 @@ document.getElementById("ctx-zip").onclick = function() {
     let pathInput = document.createElement("input");
     pathInput.type = "hidden";
     pathInput.name = "current_path";
-    pathInput.value = "{{ current_path }}";
+    pathInput.value = window.currentPath;
 
     let itemsInput = document.createElement("input");
     itemsInput.type = "hidden";
@@ -214,8 +214,10 @@ document.getElementById("ctx-zip").onclick = function() {
 document.getElementById("ctx-share").onclick = function() {
 
     window.location =
-        "/share_create?path={{ current_path }}&name=" +
-        encodeURIComponent(currentItem);
+    "/share_create?path=" +
+    encodeURIComponent(window.currentPath) +
+    "&name=" +
+    encodeURIComponent(currentItem);
 
 };
 
@@ -234,7 +236,7 @@ document.getElementById("ctx-copy").onclick = function() {
     let pathInput = document.createElement("input");
     pathInput.type = "hidden";
     pathInput.name = "current_path";
-    pathInput.value = "{{ current_path }}";
+    pathInput.value = window.currentPath;
 
     let itemsInput = document.createElement("input");
     itemsInput.type = "hidden";
@@ -268,7 +270,7 @@ document.getElementById("ctx-paste").onclick = function() {
     let pathInput = document.createElement("input");
     pathInput.type = "hidden";
     pathInput.name = "current_path";
-    pathInput.value = "{{ current_path }}";
+    pathInput.value = window.currentPath;
 
     form.appendChild(pathInput);
 
@@ -330,7 +332,7 @@ document.getElementById("ctx-delete").onclick = function() {
     let pathInput = document.createElement("input");
     pathInput.type = "hidden";
     pathInput.name = "current_path";
-    pathInput.value = "{{ current_path }}";
+    pathInput.value = window.currentPath;
 
     let itemsInput = document.createElement("input");
     itemsInput.type = "hidden";
@@ -397,7 +399,7 @@ function runBulkAction() {
     let pathInput = document.createElement("input");
     pathInput.type = "hidden";
     pathInput.name = "current_path";
-    pathInput.value = "{{ current_path }}";
+    pathInput.value = window.currentPath;
 
     form.appendChild(pathInput);
 
@@ -422,7 +424,9 @@ function runBulkAction() {
     }
 
     window.location =
-        "/download?path={{ current_path }}&name=" +
+        "/download?path=" +
+        encodeURIComponent(window.currentPath) +
+        "&name=" +
         encodeURIComponent(selected[0]);
 
     return;
@@ -437,7 +441,9 @@ function runBulkAction() {
     }
 
     window.location =
-        "/share_create?path={{ current_path }}&name=" +
+        "/share_create?path=" +
+        encodeURIComponent(window.currentPath) +
+        "&name=" +
         encodeURIComponent(selected[0]);
 
     return;
@@ -453,7 +459,7 @@ function runBulkAction() {
     let pathInput = document.createElement("input");
     pathInput.type = "hidden";
     pathInput.name = "current_path";
-    pathInput.value = "{{ current_path }}";
+    pathInput.value = window.currentPath;
 
     let itemsInput = document.createElement("input");
     itemsInput.type = "hidden";
@@ -487,7 +493,7 @@ function runBulkAction() {
         let pathInput = document.createElement("input");
         pathInput.type = "hidden";
         pathInput.name = "current_path";
-        pathInput.value = "{{ current_path }}";
+        pathInput.value = window.currentPath;
 
         let itemsInput = document.createElement("input");
         itemsInput.type = "hidden";
@@ -513,7 +519,7 @@ form.action = "/clipboard_copy";
 let pathInput = document.createElement("input");
 pathInput.type = "hidden";
 pathInput.name = "current_path";
-pathInput.value = "{{ current_path }}";
+pathInput.value = window.currentPath;
 
 let itemsInput = document.createElement("input");
 itemsInput.type = "hidden";
@@ -553,7 +559,7 @@ return;
     let pathInput = document.createElement("input");
     pathInput.type = "hidden";
     pathInput.name = "current_path";
-    pathInput.value = "{{ current_path }}";
+    pathInput.value = window.currentPath;
 
     let itemsInput = document.createElement("input");
     itemsInput.type = "hidden";
@@ -592,7 +598,7 @@ return;
     let pathInput = document.createElement("input");
     pathInput.type = "hidden";
     pathInput.name = "current_path";
-    pathInput.value = "{{ current_path }}";
+    pathInput.value = window.currentPath;
 
     let itemsInput = document.createElement("input");
     itemsInput.type = "hidden";
@@ -632,7 +638,7 @@ function copyItem(itemName) {
     form.action = "/copy";
 
     form.innerHTML = `
-        <input type="hidden" name="current_path" value="{{ current_path }}">
+        <input type="hidden" name="current_path" value="${window.currentPath}">
         <input type="hidden" name="item_name" value="${itemName}">
         <input type="hidden" name="target_folder" value="${targetFolder}">
     `;
@@ -656,7 +662,7 @@ function moveItem(itemName) {
     form.action = "/move";
 
     form.innerHTML = `
-        <input type="hidden" name="current_path" value="{{ current_path }}">
+        <input type="hidden" name="current_path" value="${window.currentPath}">
         <input type="hidden" name="item_name" value="${itemName}">
         <input type="hidden" name="target_folder" value="${targetFolder}">
     `;

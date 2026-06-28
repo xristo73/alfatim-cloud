@@ -231,25 +231,6 @@ body {
                  </a>
             </div>
 
-            <div>
-                <a href="#"
-                   class="text-blue-600 text-sm hover:font-bold mr-3"
-                   onclick="renameItem('{{ item.name }}'); return false;">
-                   Zmień nazwę
-                </a>
-
-                <a href="#"
-                   class="text-green-600 text-sm hover:font-bold mr-3"
-                   onclick="moveItem('{{ item.name }}'); return false;">
-                   Przenieś
-                </a>
-
-                <a href="{{ url_for('delete', path=current_path, name=item.name) }}"
-                   class="text-red-500 text-sm hover:font-bold" 
-                   onclick="return confirm('Czy na pewno usunąć ten folder?')">
-                   Usuń
-                </a>
-            </div>
 
         {% else %}
             <!-- PLIK -->
@@ -277,52 +258,7 @@ body {
                 </span>
             </div>
        </div>
-            <div class="flex items-center">
 
-                {% if current_path == ".trash" %}
-                <a href="{{ url_for('restore', name=item.name) }}"class="text-green-600 text-sm hover:font-bold mr-3">
-                   Przywróć
-                </a>
-                {% endif %}
-                
-               
-                <a href="{{ url_for('share_create', path=current_path, name=item.name) }}"class="text-blue-600 text-sm hover:font-bold mr-3">
-                   Udostępnij
-                </a>
-
-                <a href="{{ url_for('download_file', path=current_path, name=item.name) }}"
-                   class="text-indigo-600 text-sm hover:font-bold mr-3">
-                   Pobierz
-                </a>
-  
-                <a href="{{ url_for('show_versions', name=item.name) }}"
-                   class="text-purple-600 text-sm hover:font-bold mr-3">
-                   Wersje
-                </a>
-
-                <a href="#"
-                   class="text-cyan-600 text-sm hover:font-bold mr-3"
-                   onclick="copyItem('{{ item.name }}'); return false;">
-                   Kopiuj 
-                </a>
-
-                <a href="#"
-                   class="text-green-600 text-sm hover:font-bold mr-3"
-                   onclick="moveItem('{{ item.name }}'); return false;">
-                   Przenieś
-                </a>
-
-                <a href="#"
-                   class="text-blue-600 text-sm hover:font-bold mr-3"
-                   onclick="renameItem('{{ item.name }}'); return false;">
-                   Zmień nazwę
-                </a>                
-
-                <a href="{{ url_for('delete', path=current_path, name=item.name) }}"class="text-red-500 text-sm hover:font-bold"onclick="return confirm('Czy na pewno usunąć ten plik?')">
-                   Usuń
-                </a>
-
-            </div>
         {% endif %}
     </div>
     {% endif %}
