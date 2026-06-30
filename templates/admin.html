@@ -56,7 +56,7 @@
     <div class="bg-white p-6 rounded-2xl shadow-sm mb-10">
         <h2 class="font-semibold mb-4">➕ Dodaj użytkownika</h2>
 
-        <form action="{{ url_for('add_user') }}" method="POST" class="grid md:grid-cols-5 gap-3">
+        <form action="{{ url_for('admin.add_user') }}" method="POST" class="grid md:grid-cols-5 gap-3">
 
             <input type="text" name="username" placeholder="Login"
                    class="border px-3 py-2 rounded text-sm" required>
@@ -107,7 +107,7 @@
 
                             <!-- ZMIANA LIMITU -->
                             <form method="POST"
-                                  action="{{ url_for('update_limit', user_id=user[0]) }}"
+                                  action="{{ url_for('admin.update_limit', user_id=user[0]) }}"
                                   class="flex gap-2 items-center">
 
                                 <input type="number"
