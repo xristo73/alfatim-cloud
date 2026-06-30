@@ -15,6 +15,7 @@ from services.user_service import get_user, get_user_limit
 from utils.decorators import login_required, admin_required
 from routes.trash import trash_bp
 from routes.upload import upload_bp
+from routes.download import download_bp
 import os
 import sqlite3
 import shutil
@@ -30,6 +31,7 @@ app.secret_key = config.SECRET_KEY
 app.config["MAX_CONTENT_LENGTH"] = config.MAX_CONTENT_LENGTH
 app.teardown_appcontext(close_db)
 app.register_blueprint(upload_bp)
+app.register_blueprint(download_bp)
 UPLOAD_FOLDER = config.UPLOAD_FOLDER
 DATABASE = config.DATABASE
 ALLOWED_EXTENSIONS = config.ALLOWED_EXTENSIONS
@@ -209,26 +211,6 @@ def download(filepath):
 
     return send_from_directory(
         os.path.join(user_root, folder),
-        filename,
-        as_attachment=True
-    )
-
-# ====================================================
-# Pobieranie
-# ====================================================
-
-@app.route("/download")
-@login_required
-def download_file():
-
-    current_path = request.args.get("path", "")
-    filename = request.args.get("name")
-
-    user_root = get_user_base_folder(session["username"])
-    folder = os.path.join(user_root, current_path)
-
-    return send_from_directory(
-        folder,
         filename,
         as_attachment=True
     )

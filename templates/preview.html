@@ -38,7 +38,7 @@
 
         <div style="padding: 100px; background: white; display: inline-block;">
             <p>Podgląd niedostępny dla tego typu pliku.</p>
-            <a href="{{ url_for('download', filepath=filepath) }}" class="btn" style="background: green;">Pobierz plik</a>
+            <a href="{{ url_for('download.download', filepath=filepath) }}" class="btn" style="background: green;">Pobierz plik</a>
         </div>
     {% endif %}
 </div>
