@@ -20,7 +20,7 @@ clipboard_bp = Blueprint("clipboard", __name__)
 def clipboard_copy():
 
     if "username" not in session:
-        return redirect(url_for("home"))
+        return redirect(url_for("auth.home"))
 
     import json
 
@@ -40,7 +40,7 @@ def clipboard_copy():
 def clipboard_paste():
 
     if "username" not in session:
-        return redirect(url_for("home"))
+        return redirect(url_for("auth.home"))
 
     clipboard = session.get("clipboard")
     print("PASTE:", clipboard)
@@ -48,7 +48,7 @@ def clipboard_paste():
     print("TARGET:", request.form.get("current_path", ""))
 
     if not clipboard:
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("dashboard.dashboard"))
 
     user_root = get_user_base_folder(session["username"])
 
@@ -104,7 +104,7 @@ def clipboard_paste():
 def bulk_copy():
 
     if "username" not in session:
-        return redirect(url_for("home"))
+        return redirect(url_for("auth.home"))
 
     import json
 

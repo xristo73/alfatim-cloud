@@ -21,4 +21,4 @@ def create_folder():
 
     os.makedirs(new_folder, exist_ok=True)
 
-    return redirect(url_for("dashboard", path=current_path))
+    return redirect(url_for("dashboard.dashboard", path=current_path))

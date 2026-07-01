@@ -15,7 +15,7 @@ def bulk_zip():
     current_path = request.form.get("current_path", "")
 
     if "username" not in session:
-        return redirect(url_for("home"))
+        return redirect(url_for("auth.home"))
 
     import json
     import tempfile
@@ -97,7 +97,7 @@ def bulk_zip():
 def bulk_delete():
 
     if "username" not in session:
-        return redirect(url_for("home"))
+        return redirect(url_for("auth.home"))
 
     print("=== BULK DELETE ===")
     print(request.form)
@@ -165,7 +165,7 @@ def bulk_delete():
 
     return redirect(
         url_for(
-            "dashboard",
+            "dashboard.dashboard",
             path=current_path
         )
     )
@@ -181,7 +181,7 @@ def bulk_move():
     current_app.logger.error("current_path = %s", request.form.get("current_path"))
 
     if "username" not in session:
-        return redirect(url_for("home"))
+        return redirect(url_for("auth.home"))
 
     import json
     target_folder = request.form.get("target_folder", "")

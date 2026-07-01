@@ -28,7 +28,7 @@ def upload():
     except:
         relative_paths = []
     if not files or files[0].filename == "":
-        return redirect(url_for("dashboard", path=current_path))
+        return redirect(url_for("dashboard.dashboard", path=current_path))
 
     # 1. Przygotuj ścieżki
     user_root = get_user_base_folder(username) # korzystamy z Twojej funkcji pomocniczej
@@ -46,7 +46,7 @@ def upload():
 
     if not result:
         flash("Błąd użytkownika")
-        return redirect(url_for("dashboard", path=current_path))
+        return redirect(url_for("dashboard.dashboard", path=current_path))
 
     storage_limit_mb = result[0]
     
@@ -162,4 +162,4 @@ def upload():
             if ext in ['jpg', 'jpeg', 'png', 'gif']:
                 generate_thumb(file_path)
 
-    return redirect(url_for("dashboard", path=current_path))
+    return redirect(url_for("dashboard.dashboard", path=current_path))

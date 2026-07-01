@@ -32,4 +32,27 @@ def restore():
     if os.path.exists(source):
         shutil.move(source, destination)
 
-    return redirect(url_for("dashboard", path=".trash"))
+    return redirect(url_for("dashboard.dashboard", path=".trash"))
+
+
+
+@trash_bp.route("/empty_trash", methods=["POST"])
+@login_required
+def empty_trash():
+
+    user_root = get_user_base_folder(session["username"])
+    trash_dir = os.path.join(user_root, ".trash")
+
+    if os.path.isdir(trash_dir):
+
+        for item in os.listdir(trash_dir):
+
+            path = os.path.join(trash_dir, item)
+
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+
+            else:
+                os.remove(path)
+
+    return redirect(url_for("dashboard.dashboard", path=".trash"))

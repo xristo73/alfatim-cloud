@@ -6,7 +6,7 @@ def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if "username" not in session:
-            return redirect(url_for("home"))
+            return redirect(url_for("auth.home"))
         return f(*args, **kwargs)
     return decorated
 

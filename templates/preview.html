@@ -19,15 +19,15 @@
     
     <!-- Przyciski sterowania -->
     <button id="prevBtn" class="btn">⬅ Poprzednie</button>
-    <a href="{{ url_for('dashboard', path=current_path) }}" class="btn" style="background: #666;">Wróć do folderu</a>
+    <a href="{{ url_for('dashboard.dashboard', path=current_path) }}" class="btn" style="background: #666;">Wróć do folderu</a>
     <button id="nextBtn" class="btn">Następne ➡</button>
 </div>
 
 <div class="content">
     {% if filepath.lower().endswith(('.png','.jpg','.jpeg','.gif','.webp')) %}
-        <img src="{{ url_for('serve_file', filepath=filepath) }}" id="mainImage">
+        <img src="{{ url_for('files.serve_file', filepath=filepath) }}" id="mainImage">
     {% elif filepath.lower().endswith('.pdf') %}
-        <iframe src="{{ url_for('serve_file', filepath=filepath) }}" width="100%" height="800px"></iframe>
+        <iframe src="{{ url_for('files.serve_file', filepath=filepath) }}" width="100%" height="800px"></iframe>
 
     {% elif file_content %}
         <div style="background:white; padding:20px; text-align:left; max-width:1200px; margin:auto; border-radius:10px;">

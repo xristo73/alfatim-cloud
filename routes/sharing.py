@@ -1,7 +1,3 @@
-from flask import Blueprint
-
-sharing_bp = Blueprint("sharing", __name__)
-
 from flask import (
     Blueprint,
     session,
@@ -25,7 +21,7 @@ sharing_bp = Blueprint("sharing", __name__)
 def share_create():
 
     if "username" not in session:
-        return redirect(url_for("home"))
+        return redirect(url_for("auth.home"))
 
     current_path = request.args.get("path", "")
     item_name = request.args.get("name")
@@ -53,7 +49,7 @@ def share_create():
         "success"
     )
 
-    return redirect(url_for("dashboard", path=current_path))
+    return redirect(url_for("dashboard.dashboard", path=current_path))
 
 
 @sharing_bp.route("/share/<token>")

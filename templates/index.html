@@ -39,7 +39,7 @@ body {
 
     Zalogowany: <strong>{{ session.username }}</strong>
     |
-    <a href="{{ url_for('logout') }}" class="text-red-500">Wyloguj</a>
+    <a href="{{ url_for('auth.logout') }}" class="text-red-500">Wyloguj</a>
 
 </div>
 
@@ -86,7 +86,7 @@ body {
         {% set path_accum = "" %}
         {% for part in parts %}
             {% set path_accum = path_accum + '/' + part if path_accum else part %}
-            <a href="{{ url_for('dashboard', path=path_accum) }}" class="text-blue-600">
+            <a href="{{ url_for('dashboard.dashboard', path=path_accum) }}" class="text-blue-600">
                 {{ part }}
             </a> /
         {% endfor %}
@@ -97,7 +97,7 @@ body {
 
 <div class="bg-white rounded-xl p-4 shadow-sm mb-6">
 
-<form action="{{ url_for('search') }}" method="GET" class="flex gap-2">
+<form action="{{ url_for('search.search') }}" method="GET" class="flex gap-2">
 
     <input
         type="text"
@@ -157,7 +157,7 @@ body {
     <h2 class="font-medium mb-3">📁 Nowy folder</h2>
 
 
-<form action="{{ url_for('create_folder') }}" method="POST" class="space-y-3">
+<form action="{{ url_for('files.create_folder') }}" method="POST" class="space-y-3">
 
     <input type="hidden" name="current_path" value="{{ current_path }}">
 
@@ -188,7 +188,7 @@ body {
 
 {% if in_trash %}
 <form method="POST"
-      action="{{ url_for('empty_trash') }}"
+      action="{{ url_for('trash.empty_trash') }}"
       onsubmit="return confirm('Na pewno opróżnić kosz?');"
       class="inline">
 
@@ -217,9 +217,9 @@ body {
                        data-name="{{ item.name }}">
                 <span class="mr-2 text-xl">📁</span>
                 <a href="{% if item.name == '🗑 Kosz' %}
-                            {{ url_for('dashboard', path='.trash') }}
+                            {{ url_for('dashboard.dashboard', path='.trash') }}
                           {% else %}
-                            {{ url_for('dashboard', path=(current_path + '/' + item.name) if current_path else item.name) }}
+                            {{ url_for('dashboard.dashboard', path=(current_path + '/' + item.name) if current_path else item.name) }}
                           {% endif %}"
                    class="text-blue-600 font-medium hover:underline">
                    {{ item.name }}
@@ -235,12 +235,12 @@ body {
                        data-name="{{ item.name }}">
 
                 <div class="flex items-center cursor-pointer"
-                     onclick="window.open('{{ url_for('view_file', path=current_path, name=item.name) }}','_blank')">   
+                     onclick="window.open('{{ url_for('files.view_file', path=current_path, name=item.name) }}','_blank')">   
                 <div class="w-10 h-10 mr-3 flex items-center justify-center bg-gray-100 rounded overflow-hidden border">
                     {% set ext = item.name.split('.')[-1].lower() %}
                     {% if ext in ['jpg', 'jpeg', 'png', 'gif'] %}
                         {# Ścieżka do miniatury wykorzystująca trasę uploaded_file #}
-                        <img src="{{ url_for('uploaded_file', filename=session.username + '/' + (current_path + '/' if current_path else '') + '.thumbs/' + item.name) }}" 
+                        <img src="{{ url_for('share.uploaded_file', filename=session.username + '/' + (current_path + '/' if current_path else '') + '.thumbs/' + item.name) }}" 
                              class="w-full h-full object-cover"
                              onerror="this.parentElement.innerHTML='<span class=\'text-xl\'>🖼️</span>'">
                     {% else %}
